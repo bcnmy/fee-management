@@ -1,0 +1,30 @@
+import { ContractInterface } from "ethers";
+import { config } from "yargs";
+
+const NATIVE_ADDRESS = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+
+const RESPONSE_CODES = {
+  ERROR_RESPONSE: 500,
+  OK: 144,
+  ALREADY_EXISTS: 145,
+  UNSUPPORTED_TOKEN: 146,
+  NO_LIQUIDITY: 148,
+  UNSUPPORTED_NETWORK: 149,
+  ALLOWANCE_NOT_GIVEN: 150,
+  BAD_REQUEST: 400,
+  SUCCESS: 200,
+  EXPECTATION_FAILED: 417,
+};
+
+const EXIT_STATUS = {
+  PROCESSING: 1,
+  PROCESSED: 2,
+  FAILED: 3,
+};
+
+const SIGNATURE_TYPES = {
+  EIP712: "EIP712_SIGN",
+  PERSONAL: "PERSONAL_SIGN",
+};
+
+export { NATIVE_ADDRESS, RESPONSE_CODES, EXIT_STATUS, SIGNATURE_TYPES };
