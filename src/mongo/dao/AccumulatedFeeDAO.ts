@@ -6,7 +6,7 @@ import { RESPONSE_CODES } from '../../config';
 export class AccumulatedFeeDAO {
 
   async getOne(searchParams: {}) {
-    log.info(`Get BurnTransactions data with params ${JSON.stringify(searchParams)}`);
+    log.info(`Get AccumulatedFee data with params ${JSON.stringify(searchParams)}`);
     try {
       let result;
 
@@ -28,9 +28,7 @@ export class AccumulatedFeeDAO {
 
       return result;
     } catch (error) {
-      log.error(`Error while getting accumulatedFee data from  db`);
-      log.error(JSON.stringify(error));
-      throw new Error(JSON.stringify(error));
+      throw new Error(`Error while getting accumulatedFee data from  db`);
     }
   }
 
@@ -46,9 +44,7 @@ export class AccumulatedFeeDAO {
       log.info(`Fields Added Successfully into AccumulatedFee`);
     }
     catch (error) {
-      log.error(`Error while adding to AccumulatedFee, Fields to be added : ${JSON.stringify({ ...fieldsToAdd })}`);
-      log.error(JSON.stringify(error));
-      throw new Error(JSON.stringify(error));
+      throw new Error(`Error while adding to AccumulatedFee, Fields to be added : ${JSON.stringify({ ...fieldsToAdd })}`);
     }
     return response;
   }
@@ -69,15 +65,14 @@ export class AccumulatedFeeDAO {
             result = formatMessage(RESPONSE_CODES.SUCCESS, "AccumulatedFee updated successfully");
         } else {
             result = formatMessage(RESPONSE_CODES.EXPECTATION_FAILED, `accumulatedFeeId is not defined or fieldsToUpdate is not in correct format`);
+            throw new Error(`AccumulatedFee.findByIdAndUpdate response: ${JSON.stringify(result)}`);
         }
 
         log.info(`AccumulatedFee.update response: ${JSON.stringify(result)}`);
 
         return result;
     } catch (error) {
-        log.error(`Error while updating data in AccumulatedFee db`);
-        log.error(JSON.stringify(error))
-        throw error;
+        throw new Error(`Error while updating data in AccumulatedFee db`);
     }
 };
 }

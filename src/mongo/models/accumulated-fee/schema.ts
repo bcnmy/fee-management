@@ -16,8 +16,16 @@ export const AccumulatedFeeSchema = new Schema<IAccumulatedFee>({
     type: Number,
     required: true
   },
-  feeAccumulated: {
+  feeAccumulatedInNative: {
     type: Number,
+    required: true
+  },
+  feeAccumulatedInUSD: {
+    type: Number,
+    required: true
+  },
+  tokenSymbol: {
+    type: String,
     required: true
   },
   status: { // Failed, Pending, Processed

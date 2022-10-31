@@ -1,7 +1,16 @@
-import { ContractInterface } from "ethers";
-import { config } from "yargs";
+let config: any = {};
+const erc20Abi = require('./abi/erc20.abi.json');
+const hyphenBridgeAbi = require('./abi/hyphen.abi.json');
+config.erc20Abi = erc20Abi;
+config.hyphenBridgeAbi = hyphenBridgeAbi;
 
 const NATIVE_ADDRESS = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+config.NATIVE_ADDRESS = NATIVE_ADDRESS;
+
+config.oneInchApiBaseUrl = "https://api.1inch.io/v4.0/";
+config.hyphenBaseUrl = "https://hyphen-v2-api.biconomy.io/api/v1/"
+config.hyphenSupportedTokenEndpoint = "admin/supported-token/list"
+config.hyphenTransferFeeEndpoint = "data/transferFee"
 
 const RESPONSE_CODES = {
   ERROR_RESPONSE: 500,
@@ -34,4 +43,11 @@ const FEE_CONVERSION_DB_STATUSES = {
   FAILED: "FAILED",
   COMPLETE: "COMPLETE" 
 }
-export { NATIVE_ADDRESS, RESPONSE_CODES, EXIT_STATUS, SIGNATURE_TYPES, FEE_CONVERSION_DB_STATUSES };
+
+config.NATIVE_TOKEN_SYMBOL = {
+  1: "ETH",
+  137: "MATIC",
+  56: "BNB"
+}
+
+export { NATIVE_ADDRESS, RESPONSE_CODES, EXIT_STATUS, SIGNATURE_TYPES, FEE_CONVERSION_DB_STATUSES, config };
