@@ -1,5 +1,5 @@
 import { BigNumber } from "ethers";
 export interface IBalanceManager {
-    getBalance(chainId: number, tokenAddress: string): Promise<BigNumber> ;
-
+  calculateMFABalanceInUSD(): Promise<Map<number, number>>;
+  getBalance(chainId: number, tokenAddress: string): Promise<BigNumber>;
 }

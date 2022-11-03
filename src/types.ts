@@ -2,13 +2,14 @@ import { IDBService } from "./relayer-node-interfaces/IDBService";
 import { ICacheService } from "./relayer-node-interfaces/ICacheService";
 import { ITokenPrice } from "./relayer-node-interfaces/ITokenPrice";
 import { Mongoose } from "mongoose";
-import { ethers } from "ethers";
+import { BigNumber, ethers } from "ethers";
 import { ITransactionService } from "./relayer-node-interfaces/ITransactionService";
 import { IEVMAccount } from "./relayer-node-interfaces/IEVMAccount";
 import { ISwapManager } from "./swap/interfaces/ISwapManager";
 import { IBridgeService } from "./bridge/interfaces/IBridgeService";
 import { IBalanceManager } from "./gas-management/interfaces/IBalanceManager";
 import { INetwork } from "./blockchain/interface/INetwork";
+import { type } from "os";
 
 export type Environment = "test" | "staging" | "prod";
 
@@ -32,9 +33,7 @@ export type FeeManagerParams = {
 export type DeltaManagerParams = {
   cacheService: ICacheService;
   masterFundingAccount: MasterFundingAccount;
-  tokenList: Record<number, TokenData[]>;
   appConfig: AppConfig;
-  tokenPriceService: ITokenPrice;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
 };
@@ -48,32 +47,59 @@ export type PathParams = {
   tokenPriceService: ITokenPrice;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
-}
+};
 
 export type NetworkParams = {
   provider: ethers.providers.JsonRpcProvider;
   liquidityPoolAddress: string;
-}
+};
 
 export type BalanceManagerParams = {
   masterFundingAccount: MasterFundingAccount;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
-}
+  tokenList: Record<number, TokenData[]>;
+  tokenPriceService: ITokenPrice;
+};
 
 export type BridgeParams = {
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   networkMap: Record<number, INetwork>;
   tokenPriceService: ITokenPrice;
   masterFundingAccount: MasterFundingAccount;
-}
+};
 
 export type ExitParams = {
   fromChainId: number;
   toChainId: number;
   tokenAddress: string;
-  transferAmount: string
-}
+  transferAmount: string;
+};
 
+export type BridgeCostParams = {
+  fromChainId: number;
+  toChainId: number;
+  fromTokenAddress: string;
+  fromTokenBalance: BigNumber;
+  toTokenAddress: string;
+};
+
+export type SwapCostParams = {
+  chainId: number;
+  swapFromTokenAddress: string;
+};
+
+export type RouteParams = {
+  costInUsd: BigNumber;
+  fromChainId: number;
+  toChainId: number;
+  tokenAddress: string;
+  action: RouteType;
+};
+
+export enum RouteType {
+  SWAP_N_BRIDGE,
+  BRIDGE_N_SWAP,
+}
 export type TokenData = {
   address: string;
   symbol: string;
@@ -163,11 +189,10 @@ export type ErrorTransactionResponseType = {
   error: string;
 };
 
-export type SuccessTransactionResponseType =
-  TransactionListenerNotifyReturnType & {
-    state: "success";
-    code: number;
-  };
+export type SuccessTransactionResponseType = TransactionListenerNotifyReturnType & {
+  state: "success";
+  code: number;
+};
 
 export type TransactionDataType = {
   to: string;
@@ -180,22 +205,17 @@ export type TransactionDataType = {
 };
 
 export type HyphenDepositParams = {
-  fromChainId: number,
-  toChainId: number,
-  tokenAddress: string,
-  receiver: string,
-  amount: number,
-  tag: string
-}
+  fromChainId: number;
+  toChainId: number;
+  tokenAddress: string;
+  receiver: string;
+  amount: BigNumber;
+  tag: string;
+};
 
-
-
-export type SwapParams = {
-
-}
+export type SwapParams = {};
 
 export type DeltaMap = {
   positiveDeltaMap: Map<number, number>;
   negativeDeltaMap: Map<number, number>;
-}
-
+};
