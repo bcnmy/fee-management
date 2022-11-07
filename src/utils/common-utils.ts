@@ -13,7 +13,18 @@ const stringify = (Object: any) => {
   return JSON.stringify(Object);
 }
 
-export { formatMessage, getTimeInMilliseconds, stringify };
+function sortArrayOfObject(sortAttribute: string) {
+  return function (firstEntry: any, secondEntry: any) {
+    if (firstEntry[sortAttribute] > secondEntry[sortAttribute]) {
+      return 1;
+    } else if (firstEntry[sortAttribute] < secondEntry[sortAttribute]) {
+      return -1;
+    }
+    return 0;
+  };
+}
+
+export { formatMessage, getTimeInMilliseconds, stringify, sortArrayOfObject };
 
 
 

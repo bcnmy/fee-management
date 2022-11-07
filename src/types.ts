@@ -46,10 +46,17 @@ export type DeltaManagerParams = {
 
 export type PathParams = {
   swapManager: ISwapManager;
-  bridgeService: IBridgeService;
+  bridgeServiceMap: Record<number, IBridgeService>;
   masterFundingAccount: IEVMAccount;
   tokenList: Record<number, TokenData[]>;
   appConfig: AppConfig;
+  tokenPriceService: ITokenPrice;
+  transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
+  balanceManager: IBalanceManager;
+};
+
+export type SwapParams = {
+  swapManager: ISwapManager;
   tokenPriceService: ITokenPrice;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
@@ -68,8 +75,9 @@ export type BalanceManagerParams = {
 };
 
 export type BridgeParams = {
-  transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
-  networkMap: Record<number, INetwork>;
+  transactionService: ITransactionService<IEVMAccount, EVMRawTransactionType>;
+  // networkMap: Record<number, INetwork>;
+  liquidityPoolAddress: string;
   tokenPriceService: ITokenPrice;
   masterFundingAccount: IEVMAccount;
 };
@@ -226,8 +234,6 @@ export type HyphenDepositParams = {
   amount: BigNumber;
   tag: string;
 };
-
-export type SwapParams = {};
 
 export type DeltaMap = {
   positiveDeltaMap: Record<number, number>;

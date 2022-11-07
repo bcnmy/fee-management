@@ -31,111 +31,139 @@ import { ITransactionDAO } from './relayer-node-interfaces/ITransactionDAO';
 import type { Lock } from "redlock";
 
 class FeeManager {
-  masterFundingAccount: IEVMAccount;
-  relayerAddresses: String[];
-  appConfig: AppConfig;
-  dbService: ITransactionDAO;
-  tokenPriceService: ITokenPrice;
-  cacheService: ICacheService;
-  accumulatedFeeDao: AccumulatedFeeDAO;
-  deltaManager: IDeltaManager;
-  pathManager: IPathManager;
-  swapManager: ISwapManager;
-  bridgeService: IBridgeService;
-  balanceManager: IBalanceManager;
-  networkMap: Record<number, INetwork> = {};
-  transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
+  masterFundingAccount!: IEVMAccount;
+  relayerAddresses!: String[];
+  appConfig!: AppConfig;
+  dbService!: ITransactionDAO;
+  tokenPriceService!: ITokenPrice;
+  cacheService!: ICacheService;
+  accumulatedFeeDao!: AccumulatedFeeDAO;
+  deltaManager!: IDeltaManager;
+  pathManager!: IPathManager;
+  swapManager!: ISwapManager;
+  bridgeServiceMap: Record<number, IBridgeService> = {};
+  balanceManager!: IBalanceManager;
+  // networkMap: Record<number, INetwork> = {};
+  transactionServiceMap!: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   oneIncheTokenMap: Record<number, Record<string, string>> = {};
   hyphenSupportedTokenMap: Record<number, Record<string, Record<number, string>>> = {};
 
   constructor(feeManagerParams: FeeManagerParams) {
-    this.transactionServiceMap = feeManagerParams.transactionServiceMap;
-    log.info(`transactionServiceMap Initiated successfully`);
+    try {
+      if (this.validateParams(feeManagerParams)) {
 
-    for (let chainId in this.transactionServiceMap) {
-      let network = new Network({
-        provider: this.transactionServiceMap[chainId].networkService.ethersProvider,
-        liquidityPoolAddress: config.hyphenLiquidityPoolAddress[chainId],
-      });
-      this.networkMap[chainId] = network;
+        this.transactionServiceMap = feeManagerParams.transactionServiceMap;
+
+        this.swapManager = new OneInchManager({
+          swapManager: this.swapManager,
+          tokenPriceService: this.tokenPriceService,
+          transactionServiceMap: this.transactionServiceMap,
+          balanceManager: this.balanceManager,
+        });
+
+        this.masterFundingAccount = feeManagerParams.masterFundingAccount;
+
+        this.relayerAddresses = feeManagerParams.relayerAddresses;
+
+        this.appConfig = feeManagerParams.appConfig;
+
+        this.dbService = feeManagerParams.dbService;
+
+        this.tokenPriceService = feeManagerParams.tokenPriceService;
+
+        this.cacheService = feeManagerParams.cacheService;
+
+        this.accumulatedFeeDao = new AccumulatedFeeDAO();
+
+        this.balanceManager = new BalanceManager({
+          transactionServiceMap: this.transactionServiceMap,
+          masterFundingAccount: this.masterFundingAccount,
+          tokenList: this.appConfig.tokenList,
+          tokenPriceService: this.tokenPriceService,
+        });
+
+        this.deltaManager = new DeltaManager({
+          cacheService: this.cacheService,
+          masterFundingAccount: this.masterFundingAccount,
+          appConfig: this.appConfig,
+          transactionServiceMap: this.transactionServiceMap,
+          balanceManager: this.balanceManager,
+        });
+
+        for (let chainId in this.transactionServiceMap) {
+          let bridgeService = new HyphenBridge({
+            transactionService: this.transactionServiceMap[chainId],
+            liquidityPoolAddress: config.hyphenLiquidityPoolAddress[chainId],
+            tokenPriceService: this.tokenPriceService,
+            masterFundingAccount: this.masterFundingAccount,
+          });
+          this.bridgeServiceMap[chainId] = bridgeService;
+        }
+
+        this.pathManager = new PathManager({
+          swapManager: this.swapManager,
+          bridgeServiceMap: this.bridgeServiceMap,
+          masterFundingAccount: this.masterFundingAccount,
+          tokenList: this.appConfig.tokenList,
+          appConfig: this.appConfig,
+          tokenPriceService: this.tokenPriceService,
+          transactionServiceMap: this.transactionServiceMap,
+          balanceManager: this.balanceManager,
+        });
+        log.info(`Fee Manager Params Initiated successfully`);
+      } else {
+        log.info(`SDK initialisation failed`);
+      }
+    } catch (error) {
+      throw error;
     }
-
-    log.info(`networkMap Initiated successfully`);
-
-    this.swapManager = new OneInchManager();
-    log.info(`swapManager Initiated successfully`);
-
-    this.masterFundingAccount = feeManagerParams.masterFundingAccount;
-    log.info(`masterFundingAccount Initiated successfully`);
-
-    this.relayerAddresses = feeManagerParams.relayerAddresses;
-    log.info(`relayerAddresses Initiated successfully`);
-
-    this.appConfig = feeManagerParams.appConfig;
-    log.info(`appConfig Initiated successfully`);
-
-    this.dbService = feeManagerParams.dbService;
-    log.info(`dbService Initiated successfully`);
-
-    // TODO: validate feeManagerParams.tokenPriceService, if undefined throw exception. Do this for all required parameters.
-    this.tokenPriceService = feeManagerParams.tokenPriceService;
-    log.info(`tokenPriceService Initiated successfully`);
-
-    this.cacheService = feeManagerParams.cacheService;
-    log.info(`cacheService Initiated successfully`);
-
-    this.accumulatedFeeDao = new AccumulatedFeeDAO();
-    log.info(`accumulatedFeeDao class Initiated successfully`);
-
-    this.balanceManager = new BalanceManager({
-      transactionServiceMap: this.transactionServiceMap,
-      masterFundingAccount: this.masterFundingAccount,
-      tokenList: this.appConfig.tokenList,
-      tokenPriceService: this.tokenPriceService,
-    });
-    log.info(`balanceManager Initiated successfully`);
-
-    this.deltaManager = new DeltaManager({
-      cacheService: this.cacheService,
-      masterFundingAccount: this.masterFundingAccount,
-      appConfig: this.appConfig,
-      transactionServiceMap: this.transactionServiceMap,
-      balanceManager: this.balanceManager,
-    });
-    log.info(`deltaManager Initiated successfully`);
-
-    this.bridgeService = new HyphenBridge({
-      transactionServiceMap: this.transactionServiceMap,
-      networkMap: this.networkMap,
-      tokenPriceService: this.tokenPriceService,
-      masterFundingAccount: this.masterFundingAccount,
-    });
-    log.info(`bridgeService Initiated successfully`);
-
-    this.pathManager = new PathManager({
-      swapManager: this.swapManager,
-      bridgeService: this.bridgeService,
-      masterFundingAccount: this.masterFundingAccount,
-      tokenList: this.appConfig.tokenList,
-      appConfig: this.appConfig,
-      tokenPriceService: this.tokenPriceService,
-      transactionServiceMap: this.transactionServiceMap,
-      balanceManager: this.balanceManager,
-    });
-    log.info(`pathManager Initiated successfully`);
+  }
+  validateParams(feeManagerParams: FeeManagerParams): Boolean {
+    if (feeManagerParams) {
+      if (feeManagerParams.masterFundingAccount === null || feeManagerParams.masterFundingAccount === undefined) {
+        log.info(`masterFundingAccount is not defined`);
+        throw new Error(`masterFundingAccount is not defined`);
+      }
+      if (feeManagerParams.relayerAddresses === null || feeManagerParams.relayerAddresses === undefined) {
+        log.info(`relayerAddresses is not defined`);
+        throw new Error(`relayerAddresses is not defined`);
+      }
+      if (feeManagerParams.appConfig === null || feeManagerParams.appConfig === undefined) {
+        log.info(`appConfig is not defined`);
+        throw new Error(`appConfig is not defined`);
+      }
+      if (feeManagerParams.dbService === null || feeManagerParams.dbService === undefined) {
+        log.info(`dbService is not defined`);
+        throw new Error(`dbService is not defined`);
+      }
+      if (feeManagerParams.tokenPriceService === null || feeManagerParams.tokenPriceService === undefined) {
+        log.info(`tokenPriceService is not defined`);
+        throw new Error(`tokenPriceService is not defined`);
+      }
+      if (feeManagerParams.cacheService === null || feeManagerParams.cacheService === undefined) {
+        log.info(`cacheService is not defined`);
+        throw new Error(`cacheService is not defined`);
+      }
+      if (feeManagerParams.transactionServiceMap === null || feeManagerParams.transactionServiceMap === undefined) {
+        log.info(`transactionServiceMap is not defined`);
+        throw new Error(`transactionServiceMap is not defined`);
+      }
+      return true;
+    } else {
+      throw new Error(`feeManagerParams not defined`);
+    }
   }
 
   async init() {
-    for (let chainId in this.transactionServiceMap) {
-      let hyphenSupportedTokens = await this.bridgeService.getHyphenSupportedToken(Number(chainId));
-      this.hyphenSupportedTokenMap[chainId] = hyphenSupportedTokens;
-
-      let oneInchSupportedTokens = await this.swapManager.getSupportedTokenList(Number(chainId));
-      this.oneIncheTokenMap[chainId] = oneInchSupportedTokens;
+    try {
+      for (let chainId in this.transactionServiceMap) {
+        await this.bridgeServiceMap[chainId].initializeBridgeTokenList(Number(chainId));
+        await this.swapManager.initialiseSwapTokenList(Number(chainId));
+      }
+    } catch (error) {
+      log.info(`Error while initiating token list`);
+      throw new Error(`Error while initiating token list`);
     }
-
-    await this.pathManager.setHyphenSupportedTokenMap(this.hyphenSupportedTokenMap);
-    await this.pathManager.setOneInchSupportedTokenMap(this.oneIncheTokenMap);
   }
 
   /** Get the transaction GasPrice
@@ -145,16 +173,20 @@ class FeeManager {
    * set value in cache with incomingGasFee as value
    */
   async onTransaction(transactionReceipt: ethers.providers.TransactionReceipt, chainId: number) {
+    // TODO: Sachin: Check for undefined value of transactionReceipt - done
+    if (!transactionReceipt) {
+      throw new Error(`Transaction Receipt is undefined`);
+    }
     let redisLock: Lock | undefined;
     let mfaPublicKey: string = this.masterFundingAccount.getPublicKey();
     try {
       if (transactionReceipt.gasUsed) {
         // TODO: Sachin: Rename the method to getNativeTokenInfo - done
         // TODO: Sachin: Rename variable to nativeTokenInfo - done
-        let tokenInfo = getNativeTokenInfo(chainId, this.appConfig.tokenList);
-        if (!tokenInfo) {
-          log.error(`TokenInfo not Available`);
-          throw new Error(`TokenInfo not Available`);
+        let nativeTokenInfo = getNativeTokenInfo(chainId, this.appConfig.tokenList);
+        if (!nativeTokenInfo) {
+          log.error(`native Token Info not Available`);
+          throw new Error(`Native Token Info not Available for chain id ${chainId}`);
         }
         let networkGasPrice = await this.transactionServiceMap[chainId].networkService.getGasPrice();
         log.info(`networkGasPrice: ${networkGasPrice}`);
@@ -162,16 +194,17 @@ class FeeManager {
         let transactionFee = transactionReceipt.gasUsed.mul(networkGasPrice.gasPrice);
         log.info(`transactionFee: ${transactionFee}`);
 
-        let tokenUsdPrice = await this.tokenPriceService.getTokenPrice(tokenInfo.symbol);
+        let tokenUsdPrice = await this.tokenPriceService.getTokenPrice(nativeTokenInfo.symbol);
         log.info(`tokenUsdPrice: ${tokenUsdPrice}`);
 
-        let transactionFeePaidInUsd = transactionFee.mul(tokenUsdPrice).div(tokenInfo.decimal);
+        let transactionFeePaidInUsd = transactionFee.mul(tokenUsdPrice).div(nativeTokenInfo.decimal);
         log.info(`transactionFeePaidInUsd: ${transactionFeePaidInUsd}`);
 
         // TODO: Sachin: Take the redis db lock here before quering the DB - done
         redisLock = await this.cacheService.getRedLock().lock(`locks:${chainId}_${mfaPublicKey}`, config.cache.LOCK_TTL);
         log.info(`Lock acquired for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
 
+        // TODO: Sachin: From the dao, get this info from cache and if not found get from db.
         let totalFeePaidFromDb = await this.accumulatedFeeDao.getOne({ chainId, status: 'PENDING' });
         log.info(`totalFeePaidFromDb: ${totalFeePaidFromDb}`);
 
@@ -185,6 +218,7 @@ class FeeManager {
           );
           log.info(`feeInUsdToBeUpdatedInDB: ${feeInUsdToBeUpdatedInDB}`);
 
+          // TODO: Sachin: Do not await db updating call, instead put this .update call in try catch block and in case of error send notification
           let updateAccumulatedFeeRequest = await this.accumulatedFeeDao.update(
             {
               feeAccumulatedInNative: nativeFeeToBeUpdatedInDB,
@@ -199,8 +233,6 @@ class FeeManager {
           log.info(`Accumulated feeInUsd updated in cache`);
 
           if (feeInUsdToBeUpdatedInDB.gt(ethers.BigNumber.from(this.appConfig.feeSpendThreshold[chainId]))) {
-            // TODO: Sachin: Move calculateMFABalanceInUSD in balance-manager.ts
-            // as its related to token balances in USD and not related to calculating delta - done
             let mfaUSDBalanceMap = await this.balanceManager.calculateMFABalanceInUSD();
             log.info(`mfaUSDBalanceMap: ${stringify(mfaUSDBalanceMap)}`);
 
@@ -209,13 +241,15 @@ class FeeManager {
 
             let routes: Array<RouteParams> = await this.pathManager.findAllRoutes(deltaMap, chainId);
             log.info(`Sorted Routes: ${stringify(routes)}`);
+
+            let rebalanceMFA = await this.pathManager.rebalanceMFA(routes, deltaMap.positiveDeltaMap);
           }
         } else {
           let addAccumulatedFeeToDBRequest = await this.accumulatedFeeDao.add({
             startTime: getTimeInMilliseconds(),
             feeAccumulatedInNative: transactionFee,
             feeAccumulatedInUSD: transactionFeePaidInUsd,
-            tokenSymbol: tokenInfo.symbol,
+            tokenSymbol: nativeTokenInfo.symbol,
             network: chainId,
             status: FEE_CONVERSION_DB_STATUSES.PEDNING,
             createdOn: getTimeInMilliseconds(),
@@ -228,18 +262,18 @@ class FeeManager {
           await this.cacheService.set(getGasFeePaidKey(chainId), transactionFeePaidInUsd.toString());
         }
       } else {
-        log.info('Receipt not found');
-        throw new Error(`Receipt not found`);
+        log.error(`gasUsed property not found in transaction receipt for network id ${chainId}`);
+        throw new Error(`gasUsed property not found in transaction receipt for network id ${chainId}`);
       }
     } catch (error: any) {
-      log.info(stringify(error));
+      log.error(error);
       throw error;
     }
     finally {
       if (redisLock) {
         redisLock.unlock().catch((err: any) => {
-          log.error(`error whle unlocking ${stringify(err)}`);
-          log.info(stringify(err));
+          log.error(`error whle unlocking reedis lock ${stringify(err)}`);
+          log.error(err);
         });
       }
       log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);

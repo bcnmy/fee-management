@@ -1,5 +1,8 @@
-import { QuoteRequestParam } from '../../types';
+import { ethers } from 'ethers';
+import { QuoteRequestParam, SwapCostParams } from '../../types';
 export interface ISwapManager {
-  getSupportedTokenList(chainId: number): Promise<Record<string, string>>;
+  getSwapCost(swapCostParams: SwapCostParams): Promise<ethers.BigNumber>;
+  initialiseSwapTokenList(chainId: number): void;
   getQuote(quoteRequestParam: QuoteRequestParam): any;
+  getSwapTokenList(chainId: number): Record<number, string>;
 }

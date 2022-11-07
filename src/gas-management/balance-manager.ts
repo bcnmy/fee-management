@@ -30,14 +30,14 @@ class BalanceManager implements IBalanceManager {
           this.masterFundingAccount.getPublicKey()
         );
       } else {
-        let readBalanceFromChain = await this.transactionServiceMap[chainId].networkService.executeReadMethod(
+        let tokenBalanceFromChain = await this.transactionServiceMap[chainId].networkService.executeReadMethod(
           config.erc20Abi,
           tokenAddress,
           'balanceOf',
           [this.masterFundingAccount.getPublicKey()]
         );
 
-        tokenBalance = ethers.BigNumber.from(readBalanceFromChain);
+        tokenBalance = ethers.BigNumber.from(tokenBalanceFromChain);
       }
 
       log.info(`tokenBalance: ${tokenBalance.toString()}`);
@@ -53,6 +53,7 @@ class BalanceManager implements IBalanceManager {
   async calculateMFABalanceInUSD(): Promise<Record<number, number>> {
     let usdBalanceOfMFA: Record<number, number> = {};
 
+    //TODO: Sachin: To be done later as optimisation: Use Promise.all to parallely calculate token balances https://www.geeksforgeeks.org/javascript-promise-all-method/
     try {
       for (let chainId in this.tokenList) {
         for (let tokenRecordIndex = 0; tokenRecordIndex < this.tokenList[chainId].length; tokenRecordIndex++) {

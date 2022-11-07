@@ -30,6 +30,7 @@ export function getNativeTokenInfo(chainId: number, tokenList: Record<number, To
   }
 }
 
+// TODO: Sachin: Remove these method. These are not utility methods
 export async function getErc20TokenBalance(
   chainId: number,
   provider: ethers.providers.JsonRpcProvider,

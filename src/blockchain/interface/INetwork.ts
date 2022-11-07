@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
 
 export interface INetwork {
-    getLiquidityPoolInstance(): ethers.Contract;
+    // getLiquidityPoolInstance(): ethers.Contract;
 }

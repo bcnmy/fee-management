@@ -28,7 +28,6 @@ class DeltaManager implements IDeltaManager {
   }
 
   async calculateDelta(mfaUSDBalanceMap: Record<number, number>, chainToRebalance: number): Promise<DeltaMap> {
-    // TODO: Sachin: Set its type - done
     let positiveDeltaMap: Record<number, number> = {}; // chains where funds are below Initial Funding Amount
     let negativeDeltaMap: Record<number, number> = {}; // chains where funds are above Initial Funding Amount
     log.info(`calculateDelta chainwise to find out where extra funds are lying`);
