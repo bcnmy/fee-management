@@ -1,5 +1,5 @@
-import { BigNumber } from "ethers";
+import { QuoteRequestParam } from '../../types';
 export interface ISwapManager {
   getSupportedTokenList(chainId: number): Promise<Record<string, string>>;
-  getQuote(chainId: number, fromToken: string, toToken: string, amount: BigNumber);
+  getQuote(quoteRequestParam: QuoteRequestParam): any;
 }

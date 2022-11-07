@@ -1,46 +1,63 @@
-// import "{ } from "./types";
-import { BigNumber } from "ethers";
-import { config } from "../../config";
+import { config } from '../../config';
+import { ISwapManager } from '../interfaces/ISwapManager';
+import { QuoteRequestParam } from "../../types";
+import { log } from '../../logs';
+import { stringify } from '../../utils/common-utils';
+
 const fetch = require('node-fetch');
-import { ISwapManager } from "../interfaces/ISwapManager";
 
 class OneInchManager implements ISwapManager {
+  // TODO add try catch
+  async getQuote(quoteRequestParam: QuoteRequestParam) {
+    try {
+      log.info(`getQuote() quoteRequestParam: ${quoteRequestParam}`);
+      const url = this.apiRequestUrl('/quote', quoteRequestParam.chainId, {
+        fromTokenAddress: quoteRequestParam.fromTokenAddress,
+        toTokenAddress: quoteRequestParam.toTokenAddress,
+        amount: quoteRequestParam.amount,
+      });
 
-    // TODO add try catch
-    async getQuote(chainId: number, fromTokenAddress: string, toTokenAddress: string, amount: BigNumber) {
-        try{
-            const url = this.apiRequestUrl('/quote', chainId, {
-                fromTokenAddress: fromTokenAddress,
-                toTokenAddress: toTokenAddress,
-                amount: amount
-            });
-    
-            const response = await fetch(url).then(res => res.json()).then(res => JSON.stringify(res));
-            return response;
-        } catch (error){
-            throw new Error(error);
-        }
-    }
+      log.info(`getQuote() url: ${url}`);
 
-    apiRequestUrl( methodName: string, chainId: number, queryParams: any ): string {
-        return config.oneInchApiBaseUrl + chainId +methodName + '?' + (new URLSearchParams(queryParams)).toString();
+      const response = await fetch(url)
+        .then((res: any) => res.json())
+        .then((res: any) => stringify(res));
+      log.info(`getQuote() response: ${stringify(response)}`);
+
+      return response;
+    } catch (error: any) {
+      log.error(`Error while Getting swap Quote from 1inch api for params ${quoteRequestParam}`);
+      throw new Error(error);
     }
-    
-    async getSupportedTokenList(chainId: number): Promise<Record<string, string>> {
-        try {
-            const supportedTokenurl = this.apiRequestUrl("/tokens", chainId, null);
-            const response = await fetch(supportedTokenurl).then(res => res.json()).then(res => res);
-            
-            let tokenList = {};
-            for(let tokenAddress in response.tokens){
-                let symbol = response.tokens[tokenAddress].symbol;
-                tokenList[symbol] = tokenAddress;
-            }
-            return response.tokenList;
-        } catch (error){
-            throw new Error(error);
-        }
+  }
+
+  apiRequestUrl(methodName: string, chainId: number, queryParams: any): string {
+    return config.oneInchApiBaseUrl + chainId + methodName + '?' + new URLSearchParams(queryParams).toString();
+  }
+
+  async getSupportedTokenList(chainId: number): Promise<Record<string, string>> {
+    try {
+      log.info(`getSupportedTokenList() chainId: ${chainId}`);
+      const supportedTokenurl = this.apiRequestUrl('/tokens', chainId, null);
+
+      log.info(`supportedTokenurl: ${supportedTokenurl}`);
+      const response = await fetch(supportedTokenurl)
+        .then((res: any) => res.json())
+        .then((res: any) => res);
+      log.info(`getSupportedTokenList() response: ${stringify(response)}`);
+
+      let tokenList: Record<string, string> = {};
+      for (let tokenAddress in response.tokens) {
+        let symbol = response.tokens[tokenAddress].symbol;
+        tokenList[symbol] = tokenAddress;
+      }
+
+      log.info(`tokenList: ${stringify(tokenList)}`);
+      return response.tokenList;
+    } catch (error: any) {
+      throw new Error(error);
     }
+  }
 }
 
-export { OneInchManager }
+export { OneInchManager };

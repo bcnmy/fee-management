@@ -1,3 +1,3 @@
-import AccumulatedFee  from './model';
+import { AccumulatedFee } from './model';
 
 export { AccumulatedFee };

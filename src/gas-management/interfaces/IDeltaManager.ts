@@ -1,5 +1,5 @@
-import { DeltaMap } from "../../types";
+import { DeltaMap } from '../../types';
 
 export interface IDeltaManager {
-  calculateDelta(mfaUSDBalanceMap: Map<number, number>, chainToRebalance: number): Promise<DeltaMap>;
+  calculateDelta(mfaUSDBalanceMap: Record<number, number>, chainToRebalance: number): Promise<DeltaMap>;
 }

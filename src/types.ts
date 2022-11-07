@@ -1,17 +1,25 @@
-import { IDBService } from "./relayer-node-interfaces/IDBService";
-import { ICacheService } from "./relayer-node-interfaces/ICacheService";
-import { ITokenPrice } from "./relayer-node-interfaces/ITokenPrice";
-import { Mongoose } from "mongoose";
-import { BigNumber, ethers } from "ethers";
-import { ITransactionService } from "./relayer-node-interfaces/ITransactionService";
-import { IEVMAccount } from "./relayer-node-interfaces/IEVMAccount";
-import { ISwapManager } from "./swap/interfaces/ISwapManager";
-import { IBridgeService } from "./bridge/interfaces/IBridgeService";
-import { IBalanceManager } from "./gas-management/interfaces/IBalanceManager";
-import { INetwork } from "./blockchain/interface/INetwork";
-import { type } from "os";
+import { IDBService } from './relayer-node-interfaces/IDBService';
+import { ICacheService } from './relayer-node-interfaces/ICacheService';
+import { ITokenPrice } from './relayer-node-interfaces/ITokenPrice';
+import { Mongoose } from 'mongoose';
+import { BigNumber, ethers } from 'ethers';
+import { ITransactionService } from './relayer-node-interfaces/ITransactionService';
+import { IEVMAccount } from './relayer-node-interfaces/IEVMAccount';
+import { ISwapManager } from './swap/interfaces/ISwapManager';
+import { IBridgeService } from './bridge/interfaces/IBridgeService';
+import { IBalanceManager } from './gas-management/interfaces/IBalanceManager';
+import { INetwork } from './blockchain/interface/INetwork';
+import { type } from 'os';
+import { ITransactionDAO } from './relayer-node-interfaces/ITransactionDAO';
 
-export type Environment = "test" | "staging" | "prod";
+export type Environment = 'test' | 'staging' | 'prod';
+
+export enum TransactionType {
+  AA = 'AA',
+  SCW = 'SCW',
+  CROSS_CHAIN = 'CROSS_CHAIN',
+  FUNDING = 'FUNDING',
+}
 
 export type MasterFundingAccount = {
   publicAddress: string;
@@ -19,12 +27,10 @@ export type MasterFundingAccount = {
 };
 
 export type FeeManagerParams = {
-  rpcUrlMap: rpcUrlMap[];
-  masterFundingAccount: MasterFundingAccount;
+  masterFundingAccount: IEVMAccount;
   relayerAddresses: String[];
-  tokenList: Record<number, TokenData[]>;
   appConfig: AppConfig;
-  dbService: IDBService<Mongoose | null>;
+  dbService: ITransactionDAO;
   tokenPriceService: ITokenPrice;
   cacheService: ICacheService;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
@@ -32,7 +38,7 @@ export type FeeManagerParams = {
 
 export type DeltaManagerParams = {
   cacheService: ICacheService;
-  masterFundingAccount: MasterFundingAccount;
+  masterFundingAccount: IEVMAccount;
   appConfig: AppConfig;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
@@ -41,7 +47,7 @@ export type DeltaManagerParams = {
 export type PathParams = {
   swapManager: ISwapManager;
   bridgeService: IBridgeService;
-  masterFundingAccount: MasterFundingAccount;
+  masterFundingAccount: IEVMAccount;
   tokenList: Record<number, TokenData[]>;
   appConfig: AppConfig;
   tokenPriceService: ITokenPrice;
@@ -55,7 +61,7 @@ export type NetworkParams = {
 };
 
 export type BalanceManagerParams = {
-  masterFundingAccount: MasterFundingAccount;
+  masterFundingAccount: IEVMAccount;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   tokenList: Record<number, TokenData[]>;
   tokenPriceService: ITokenPrice;
@@ -65,7 +71,7 @@ export type BridgeParams = {
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   networkMap: Record<number, INetwork>;
   tokenPriceService: ITokenPrice;
-  masterFundingAccount: MasterFundingAccount;
+  masterFundingAccount: IEVMAccount;
 };
 
 export type ExitParams = {
@@ -84,9 +90,17 @@ export type BridgeCostParams = {
 };
 
 export type SwapCostParams = {
-  chainId: number;
+  fromChainId: number;
+  toChainId: number;
   swapFromTokenAddress: string;
 };
+
+export type QuoteRequestParam = {
+  chainId: number,
+  fromTokenAddress: string,
+  toTokenAddress: string,
+  amount: BigNumber
+}
 
 export type RouteParams = {
   costInUsd: BigNumber;
@@ -159,14 +173,14 @@ export type EVMRawTransactionType = {
 export type NetworkBasedGasPriceType =
   | string
   | {
-      maxPriorityFeePerGas: string;
-      maxFeePerGas: string;
-    };
+    maxPriorityFeePerGas: string;
+    maxFeePerGas: string;
+  };
 
 export enum GasPriceType {
-  DEFAULT = "default",
-  MEDIUM = "medium",
-  FAST = "fast",
+  DEFAULT = 'default',
+  MEDIUM = 'medium',
+  FAST = 'fast',
 }
 
 export type TransactionMessageType = ethers.providers.TransactionResponse;
@@ -184,13 +198,13 @@ export type NotifyTransactionListenerParamsType = {
 };
 
 export type ErrorTransactionResponseType = {
-  state: "failed";
+  state: 'failed';
   code: number;
   error: string;
 };
 
 export type SuccessTransactionResponseType = TransactionListenerNotifyReturnType & {
-  state: "success";
+  state: 'success';
   code: number;
 };
 
@@ -216,6 +230,25 @@ export type HyphenDepositParams = {
 export type SwapParams = {};
 
 export type DeltaMap = {
-  positiveDeltaMap: Map<number, number>;
-  negativeDeltaMap: Map<number, number>;
+  positiveDeltaMap: Record<number, number>;
+  negativeDeltaMap: Record<number, number>;
 };
+
+export enum SocketEventType {
+  onTransactionHashGenerated = 'transactionHashGenerated',
+  onTransactionHashChanged = 'transactionHashChanged',
+  onTransactionMined = 'transactionMined',
+  onTransactionError = 'error',
+}
+
+export type RetryTransactionQueueData = {
+  relayerAddress: string,
+  transactionType: TransactionType,
+  transactionHash?: string,
+  transactionId: string,
+  rawTransaction: EVMRawTransactionType,
+  userAddress: string,
+  relayerManagerName: string,
+  event: SocketEventType
+};
+export type RetryTransactionDataType = RetryTransactionQueueData;

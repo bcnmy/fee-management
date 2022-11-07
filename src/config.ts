@@ -1,6 +1,9 @@
 let config: any = {};
-const erc20Abi = require("./abi/erc20.abi.json");
-const hyphenBridgeAbi = require("./abi/hyphen.abi.json");
+import LIQUIDITY_POOL_MANAGER_ABI from "./abi/liquidityPoolAbi";
+import ERC20_ABI from "./abi/erc20Abi";
+
+const erc20Abi = ERC20_ABI;
+const hyphenBridgeAbi = LIQUIDITY_POOL_MANAGER_ABI;
 config.erc20Abi = erc20Abi;
 config.hyphenBridgeAbi = hyphenBridgeAbi;
 

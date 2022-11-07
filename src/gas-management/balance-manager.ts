@@ -1,15 +1,16 @@
 // import "{ } from "./types";
-import { BigNumber, ethers } from "ethers";
-import { config, NATIVE_ADDRESS } from "../config";
-import { IEVMAccount } from "../relayer-node-interfaces/IEVMAccount";
-import { ITokenPrice } from "../relayer-node-interfaces/ITokenPrice";
-import { ITransactionService } from "../relayer-node-interfaces/ITransactionService";
-import { EVMRawTransactionType, BalanceManagerParams, MasterFundingAccount, TokenData } from "../types";
-import { IBalanceManager } from "./interfaces/IBalanceManager";
-
+import { BigNumber, ethers } from 'ethers';
+import { config, NATIVE_ADDRESS } from '../config';
+import { IEVMAccount } from '../relayer-node-interfaces/IEVMAccount';
+import { ITokenPrice } from '../relayer-node-interfaces/ITokenPrice';
+import { ITransactionService } from '../relayer-node-interfaces/ITransactionService';
+import { EVMRawTransactionType, BalanceManagerParams, MasterFundingAccount, TokenData } from '../types';
+import { IBalanceManager } from './interfaces/IBalanceManager';
+import { log } from '../logs';
+import { stringify } from '../utils/common-utils';
 class BalanceManager implements IBalanceManager {
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
-  masterFundingAccount: MasterFundingAccount;
+  masterFundingAccount: IEVMAccount;
   tokenList: Record<number, TokenData[]>;
   tokenPriceService: ITokenPrice;
 
@@ -23,30 +24,34 @@ class BalanceManager implements IBalanceManager {
   async getBalance(chainId: number, tokenAddress: string): Promise<BigNumber> {
     let tokenBalance: BigNumber;
     try {
+      log.info(`tokenAddress: ${tokenAddress}`);
       if (tokenAddress === NATIVE_ADDRESS) {
         tokenBalance = await this.transactionServiceMap[chainId].networkService.getBalance(
-          this.masterFundingAccount.publicAddress
+          this.masterFundingAccount.getPublicKey()
         );
       } else {
         let readBalanceFromChain = await this.transactionServiceMap[chainId].networkService.executeReadMethod(
           config.erc20Abi,
           tokenAddress,
-          "balanceOf",
-          [this.masterFundingAccount.publicAddress]
+          'balanceOf',
+          [this.masterFundingAccount.getPublicKey()]
         );
 
         tokenBalance = ethers.BigNumber.from(readBalanceFromChain);
       }
-    } catch (error) {
-      throw new Error(`Error while fetching token ${tokenAddress} balance on chain ${chainId}`);
+
+      log.info(`tokenBalance: ${tokenBalance.toString()}`);
+    } catch (error: any) {
+      log.error(`error : ${stringify(error)}`);
+      throw new Error(`Error while fetching token ${tokenAddress} balance on chain ${chainId}: ${stringify(error)}`);
     }
 
     return tokenBalance;
   }
 
   //TODO: Sachin: Add method comments here, that it calculates total usd balance of all tokens on each supported chains.
-  async calculateMFABalanceInUSD(): Promise<Map<number, number>> {
-    let usdBalanceOfMFA: Map<number, number> = new Map();
+  async calculateMFABalanceInUSD(): Promise<Record<number, number>> {
+    let usdBalanceOfMFA: Record<number, number> = {};
 
     try {
       for (let chainId in this.tokenList) {
@@ -64,14 +69,18 @@ class BalanceManager implements IBalanceManager {
             let balanceValueInUsd = tokenBalance.mul(tokenUsdPrice);
 
             usdBalanceOfMFA[chainId] = +balanceValueInUsd;
-          } catch (error) {
-            throw new Error(`Error while calculating token usdBalance in MFA for chainId ${chainId}`);
+          } catch (error: any) {
+            log.error(`Error while calculating token usdBalance in MFA for chainId ${chainId}: ${stringify(error)}`);
+            throw new Error(`Error while calculating token usdBalance in MFA for chainId ${chainId}: ${stringify(error)}`);
           }
         }
       }
-    } catch (error) {
-      throw new Error(`Error while calculating usdBalance in MFA ${JSON.stringify(error)}`);
+    } catch (error: any) {
+      log.error(`error: ${stringify(error)}`);
+      throw new Error(`Error while calculating usdBalance in MFA ${stringify(error)}`);
     }
+
+    log.info(`usdBalanceOfMFA : ${stringify(usdBalanceOfMFA)}`);
     return usdBalanceOfMFA;
   }
 }

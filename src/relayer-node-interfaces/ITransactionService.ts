@@ -1,18 +1,20 @@
-import { IGasPrice } from './IGasPrice';
+import { ErrorTransactionResponseType, RetryTransactionDataType, SuccessTransactionResponseType, TransactionDataType, TransactionType } from '../types';
+import { IEVMAccount } from './IEVMAccount';
 import { INetworkService } from './INetworkService';
-import { INonceManager } from './INonceManager';
-import { ITransactionListener } from './ITransactionListener';
-import { ErrorTransactionResponseType, SuccessTransactionResponseType, TransactionDataType } from '../types';
-
 export interface ITransactionService<AccountType, RawTransactionType> {
-  chainId: number;
+
   networkService: INetworkService<AccountType, RawTransactionType>;
-  transactionListener: ITransactionListener<AccountType, RawTransactionType>;
-  nonceManager: INonceManager<AccountType, RawTransactionType>;
-  gasPriceService: IGasPrice;
 
   sendTransaction(
     transaction: TransactionDataType,
-    account: AccountType
+    account: AccountType,
+    tranasctionType: TransactionType,
+    relayerManagerName: string,
+  ): Promise<SuccessTransactionResponseType | ErrorTransactionResponseType>;
+  retryTransaction(
+    transaction: RetryTransactionDataType,
+    account: IEVMAccount,
+    tranasctionType: TransactionType,
+    relayerManagerName: string,
   ): Promise<SuccessTransactionResponseType | ErrorTransactionResponseType>;
 }

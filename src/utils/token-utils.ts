@@ -1,12 +1,16 @@
-import { BigNumber, ethers } from "ethers";
-import { NATIVE_ADDRESS, config } from "../config";
-import { MasterFundingAccount, TokenData } from "../types";
-import { log } from "../logs";
+import { BigNumber, ethers } from 'ethers';
+import { NATIVE_ADDRESS, config } from '../config';
+import { TokenData } from '../types';
+import { log } from '../logs';
+import { IEVMAccount } from '../relayer-node-interfaces/IEVMAccount';
+import { stringify } from './common-utils';
 
 export function getNativeTokenInfo(chainId: number, tokenList: Record<number, TokenData[]>): TokenData | undefined {
   let token: TokenData | undefined;
 
   try {
+    log.info(`getNativeTokenInfo() chainId: ${chainId}`);
+    log.info(tokenList);
     for (let index = 0; index < tokenList[chainId].length; index++) {
       let tokenData = tokenList[chainId][index];
       if ((tokenData.address = NATIVE_ADDRESS)) {
@@ -18,9 +22,11 @@ export function getNativeTokenInfo(chainId: number, tokenList: Record<number, To
       }
     }
 
+    log.info(`token: ${token}`);
     return token;
-  } catch (error) {
-    throw new Error("Error whole fetching the Native token Symbol");
+  } catch (error: any) {
+    log.error(`Error while getNativeTokenInfo ${stringify(error)}`);
+    throw new Error(`Error while getNativeTokenInfo ${stringify(error)}`);
   }
 }
 
@@ -28,20 +34,20 @@ export async function getErc20TokenBalance(
   chainId: number,
   provider: ethers.providers.JsonRpcProvider,
   tokenAddress: string,
-  masterFundingAccount: MasterFundingAccount
+  masterFundingAccount: IEVMAccount
 ): Promise<BigNumber> {
   try {
     let erc20Contract = new ethers.Contract(tokenAddress, config.erc20Abi, provider);
 
-    let balance = await erc20Contract["balanceOf"].apply(null, masterFundingAccount.publicAddress);
+    let balance = await erc20Contract['balanceOf'].apply(null, masterFundingAccount.getPublicKey());
 
-    log.info(`Erc20 Funds balance in ${masterFundingAccount.publicAddress} on chainId ${chainId} is ${balance}`);
+    log.info(`Erc20 Funds balance in ${masterFundingAccount.getPublicKey()} on chainId ${chainId} is ${balance}`);
 
     return balance;
-  } catch (error) {
-    log.error(`Error while calculating BalanceOf ${tokenAddress} in ${masterFundingAccount.publicAddress} account`);
+  } catch (error: any) {
+    log.error(`Error while calculating BalanceOf ${tokenAddress} in ${masterFundingAccount.getPublicKey()} account`);
     throw new Error(
-      `Error while calculating BalanceOf ${tokenAddress} in ${masterFundingAccount.publicAddress} account`
+      `Error while calculating BalanceOf ${tokenAddress} in ${masterFundingAccount.getPublicKey()} account`
     );
   }
 }
@@ -50,18 +56,18 @@ export async function getNativeTokenBalance(
   chainId: number,
   provider: ethers.providers.JsonRpcProvider,
   tokenAddress: string,
-  masterFundingAccount: MasterFundingAccount
+  masterFundingAccount: IEVMAccount
 ): Promise<BigNumber> {
   try {
-    let balance = await provider.getBalance(masterFundingAccount.publicAddress);
+    let balance = await provider.getBalance(masterFundingAccount.getPublicKey());
 
-    log.info(`Native Funds balance in ${masterFundingAccount.publicAddress} on chainId ${chainId} is ${balance}`);
+    log.info(`Native Funds balance in ${masterFundingAccount.getPublicKey()} on chainId ${chainId} is ${balance}`);
 
     return balance;
-  } catch (error) {
-    log.error(`Error while calculating BalanceOf ${tokenAddress} in ${masterFundingAccount.publicAddress} account`);
+  } catch (error: any) {
+    log.error(`Error while calculating BalanceOf ${tokenAddress} in ${masterFundingAccount.getPublicKey()} account`);
     throw new Error(
-      `Error while calculating BalanceOf ${tokenAddress} in ${masterFundingAccount.publicAddress} account`
+      `Error while calculating BalanceOf ${tokenAddress} in ${masterFundingAccount.getPublicKey()} account`
     );
   }
 }
