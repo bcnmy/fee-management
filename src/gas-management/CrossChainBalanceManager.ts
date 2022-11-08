@@ -8,7 +8,7 @@ import { EVMRawTransactionType, BalanceManagerParams, MasterFundingAccount, Toke
 import { IBalanceManager } from './interfaces/IBalanceManager';
 import { log } from '../logs';
 import { stringify } from '../utils/common-utils';
-class BalanceManager implements IBalanceManager {
+export class CrossChainBalanceManager implements IBalanceManager {
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   masterFundingAccount: IEVMAccount;
   tokenList: Record<number, TokenData[]>;
@@ -85,5 +85,3 @@ class BalanceManager implements IBalanceManager {
     return usdBalanceOfMFA;
   }
 }
-
-export { BalanceManager };

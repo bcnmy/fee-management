@@ -28,6 +28,10 @@ export const AccumulatedFeeSchema = new Schema<IAccumulatedFee>({
     type: String,
     required: true
   },
+  transactionType: {
+    type: String,
+    required: true
+  },
   status: { // Failed, Pending, Processed
     type: String,
     required: true

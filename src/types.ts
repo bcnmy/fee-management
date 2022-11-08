@@ -26,6 +26,11 @@ export type MasterFundingAccount = {
   privateKey: string;
 };
 
+export enum Mode {
+  CROSS_CHAIN = "CROSS_CHAIN",
+  SINGLE_CHAIN = "SINGLE_CHAIN"
+}
+
 export type FeeManagerParams = {
   masterFundingAccount: IEVMAccount;
   relayerAddresses: String[];
@@ -34,7 +39,10 @@ export type FeeManagerParams = {
   tokenPriceService: ITokenPrice;
   cacheService: ICacheService;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
+  mode: Mode;
+  label: string,
 };
+
 
 export type DeltaManagerParams = {
   cacheService: ICacheService;
@@ -56,10 +64,13 @@ export type PathParams = {
 };
 
 export type SwapParams = {
-  swapManager: ISwapManager;
   tokenPriceService: ITokenPrice;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
+  tokenList: Record<number, TokenData[]>;
+  balanceThreshold: Record<number, number>,
+  masterFundingAccount: IEVMAccount;
+  label: string
 };
 
 export type NetworkParams = {
@@ -137,6 +148,7 @@ export type AppConfig = {
   tokenList: Record<number, TokenData[]>;
   feeSpendThreshold: Record<number, number>;
   InitialFundingAmountInUsd: Record<number, number>;
+  balanceThreshold: Record<number, number>,
 };
 
 export type GasUsedThresholdPerNetwork = {

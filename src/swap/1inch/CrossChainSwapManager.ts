@@ -1,6 +1,6 @@
 import { config } from '../../config';
 import { ISwapManager } from '../interfaces/ISwapManager';
-import { EVMRawTransactionType, PathParams, QuoteRequestParam, SwapCostParams, SwapParams } from "../../types";
+import { EVMRawTransactionType, PathParams, QuoteRequestParam, SwapCostParams, SwapParams, TokenData } from "../../types";
 import { log } from '../../logs';
 import { stringify } from '../../utils/common-utils';
 import { ethers } from 'ethers';
@@ -11,19 +11,27 @@ import { IEVMAccount } from '../../relayer-node-interfaces/IEVMAccount';
 
 const fetch = require('node-fetch');
 
-class OneInchManager implements ISwapManager {
+export class CrossChainSwapManager implements ISwapManager {
   // TODO add try catch
   oneIncheTokenMap: Record<number, Record<string, string>> = {};
-  swapManager: ISwapManager;
   tokenPriceService: ITokenPrice;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
+  tokenList: Record<number, TokenData[]>;
+  balanceThreshold: Record<number, number>;
+  masterFundingAccount: IEVMAccount;
 
   constructor(swapParams: SwapParams) {
-    this.swapManager = swapParams.swapManager;
     this.tokenPriceService = swapParams.tokenPriceService;
     this.transactionServiceMap = swapParams.transactionServiceMap;
     this.balanceManager = swapParams.balanceManager;
+    this.tokenList = swapParams.tokenList;
+    this.balanceThreshold = swapParams.balanceThreshold;
+    this.masterFundingAccount = swapParams.masterFundingAccount;
+  }
+
+  initiateSwap(chainId: number): Promise<unknown> {
+    throw new Error('Method not implemented.');
   }
 
   async getQuote(quoteRequestParam: QuoteRequestParam) {
@@ -118,5 +126,3 @@ class OneInchManager implements ISwapManager {
     return swapCostInNativeCurrency.mul(tokenPriceInUsd);
   }
 }
-
-export { OneInchManager };

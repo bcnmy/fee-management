@@ -9,6 +9,7 @@ config.hyphenBridgeAbi = hyphenBridgeAbi;
 
 const NATIVE_ADDRESS = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 config.NATIVE_ADDRESS = NATIVE_ADDRESS;
+config.INFINITE_APPROVAL_AMOUNT = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
 config.oneInchApiBaseUrl = "https://api.1inch.io/v4.0/";
 config.hyphenBaseUrl = "https://hyphen-v2-api.biconomy.io/api/v1/";

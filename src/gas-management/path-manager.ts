@@ -45,30 +45,66 @@ class PathManager implements IPathManager {
     this.balanceManager = pathParams.balanceManager;
   }
 
-  rebalanceMFA(routes: RouteParams[], deltaMap: Record<number, number>): any {
-    try {
-      for (let chainId in deltaMap) {
-        let delta = BigNumber.from(deltaMap[Number(chainId)]);
+  // 1. get token balance
+  // 2. approve token to swap router
+  // 3. swap
+  // 3. approve swapToken to hyphen Bridge
+  // 4. bridge
+  // 5. update delta
+  // async rebalanceMFA(routes: RouteParams[], deltaMap: Record<number, number>): any {
+  //   try {
+  //     for (let chainId in deltaMap) {
+  //       let delta = BigNumber.from(deltaMap[Number(chainId)]);
 
-        for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
-          let route = routes[routeIndex];
-          if (delta.lte(0)) {
-            log.info(`Rebalancing complete`);
-            break;
-          };
+  //       for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+  //         let route = routes[routeIndex];
+  //         //TODO: Add threshold instead of 0
+  //         if (delta.lte(0)) {
+  //           log.info(`Rebalancing complete`);
+  //           break;
+  //         };
 
-          if (route.action === RouteType.SWAP_N_BRIDGE) {
-            log.info(`Rebalancing complete`);
-          } else if (route.action === RouteType.BRIDGE_N_SWAP) {
-            log.info(`Rebalancing complete`);
-          };
-          delta = delta.sub(route.costInUsd);
-        }
-      }
-    } catch (error) {
+  //         if (route.action === RouteType.SWAP_N_BRIDGE) {
+  //           let tokenBalance = await this.balanceManager.getBalance(route.fromChainId, route.tokenAddress);
+  //           let swapToTokenAddress = this.swapManager.getSwapTokenList(route.fromChainId)[config.NATIVE_TOKEN_SYMBOL[route.toChainId]];
+  //           if (tokenBalance.gt(0)) {
+  //             let dexAllowance = await this.swapManager.checkDexAllowane(route.fromChainId, route.tokenAddress);
+  //             if (dexAllowance.lt(tokenBalance)) {
+  //               let approveTokenToDexHash = await this.swapManager.approveSpender(route.fromChainId, tokenBalance, route.tokenAddress);
+  //               let approveReceipt = await this.transactionServiceMap[route.fromChainId].networkService.ethersProvider.waitForTransaction(approveTokenToDexHash);
+  //               if (!approveReceipt || approveReceipt.status === 0) {
+  //                 //TODO: Add logs here
+  //                 break;
+  //               }
+  //             }
 
-    }
-  }
+  //             let swapRequestHash = await this.swapManager.swapToken(route);
+  //             let swapReceipt = await this.transactionServiceMap[route.fromChainId].networkService.ethersProvider.waitForTransaction(swapRequestHash);
+
+  //             if (swapReceipt && swapReceipt.status === 1) {
+  //               // swap successfull
+  //               let swapTokenBalance = await this.balanceManager.getBalance(route.fromChainId, route.tokenAddress);
+  //               let bridgeAllowance = await this.swapManager.checkDexAllowane(route.fromChainId, swapToTokenAddress);
+  //               if (bridgeAllowance.lt(tokenBalance)) {
+  //                 let approveToken = await this.swapManager.approveSpender(route.fromChainId, swapTokenBalance, swapToTokenAddress);
+  //                 let approveReceipt = await this.transactionServiceMap[route.fromChainId].networkService.ethersProvider.waitForTransaction(approveTokenToDexHash);
+  //                 if (!approveReceipt || approveReceipt.status === 0) {
+  //                   break;
+  //                 }
+  //               }
+  //             }
+  //           }
+  //           log.info(`Rebalancing complete`);
+  //         } else if (route.action === RouteType.BRIDGE_N_SWAP) {
+  //           log.info(`Rebalancing complete`);
+  //         };
+  //         delta = delta.sub(route.costInUsd);
+  //       }
+  //     }
+  //   } catch (error) {
+
+  //   }
+  // }
 
   async findAllRoutes(deltaMap: DeltaMap, toChainId: number): Promise<Array<RouteParams>> {
     let routes: Array<RouteParams> = new Array();

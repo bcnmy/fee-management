@@ -10,7 +10,7 @@ export interface ITransactionService<AccountType, RawTransactionType> {
     account: AccountType,
     tranasctionType: TransactionType,
     relayerManagerName: string,
-  ): Promise<SuccessTransactionResponseType | ErrorTransactionResponseType>;
+  ): Promise<SuccessTransactionResponseType>;
   retryTransaction(
     transaction: RetryTransactionDataType,
     account: IEVMAccount,
