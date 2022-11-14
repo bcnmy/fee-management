@@ -35,7 +35,7 @@ export type FeeManagerParams = {
   masterFundingAccount: IEVMAccount;
   relayerAddresses: String[];
   appConfig: AppConfig;
-  dbService: ITransactionDAO;
+  dbUrl: string;
   tokenPriceService: ITokenPrice;
   cacheService: ICacheService;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;

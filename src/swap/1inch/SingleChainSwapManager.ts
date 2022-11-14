@@ -45,7 +45,6 @@ export class SingleChainSwapManager implements ISwapManager {
       const response = await fetch(supportedTokenurl)
         .then((res: any) => res.json())
         .then((res: any) => res);
-      log.info(`getSupportedTokenList() response: ${stringify(response)} `);
 
       let tokenList: Record<string, string> = {};
       for (let tokenAddress in response.tokens) {
@@ -55,7 +54,6 @@ export class SingleChainSwapManager implements ISwapManager {
 
       log.info(`tokenList: ${stringify(tokenList)} `);
       this.oneIncheTokenMap[chainId] = response.tokenList
-      // return response.tokenList;
     }
     catch (error: any) {
       throw new Error(error);

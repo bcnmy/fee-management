@@ -1,5 +1,4 @@
-export interface IDBService<T> {
+export interface IDBService {
   connect(): void
   close(): void
-  getClient(): T
 }

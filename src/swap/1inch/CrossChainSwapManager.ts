@@ -113,7 +113,7 @@ export class CrossChainSwapManager implements ISwapManager {
       throw new Error(`Error While estimating swap gas`);
     }
     let networkGasPrice = await this.transactionServiceMap[swapCostParams.fromChainId].networkService.getGasPrice();
-    log.info(`getSwapCost() networkGasPrice: ${networkGasPrice.gasPrice}`);
+    log.info(`getSwapCost() networkGasPrice: ${stringify(networkGasPrice)}`);
 
     let swapCostInNativeCurrency = quoteForSwap.estimatedGas.mul(networkGasPrice.gasPrice);
     log.info(`getSwapCost() swapCostInNativeCurrency: ${swapCostInNativeCurrency}`);

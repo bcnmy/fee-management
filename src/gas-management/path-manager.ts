@@ -9,18 +9,15 @@ import {
   AppConfig,
   PathParams,
   EVMRawTransactionType,
-  MasterFundingAccount,
   TokenData,
   DeltaMap,
-  BridgeCostParams,
-  SwapCostParams,
   RouteType,
   RouteParams,
 } from '../types';
-import { BigNumber, ethers } from 'ethers';
+import { ethers } from 'ethers';
 import { ITransactionService } from '../relayer-node-interfaces/ITransactionService';
 import { IEVMAccount } from '../relayer-node-interfaces/IEVMAccount';
-import { config, NATIVE_ADDRESS } from '../config';
+import { config } from '../config';
 import { IBalanceManager } from './interfaces/IBalanceManager';
 import { sortArrayOfObject, stringify } from '../utils/common-utils';
 class PathManager implements IPathManager {

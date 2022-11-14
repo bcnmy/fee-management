@@ -1,5 +1,5 @@
 import { BigNumber, ethers } from 'ethers';
-import { NATIVE_ADDRESS, config } from '../config';
+import { config } from '../config';
 import { TokenData } from '../types';
 import { log } from '../logs';
 import { IEVMAccount } from '../relayer-node-interfaces/IEVMAccount';
@@ -13,7 +13,7 @@ export function getNativeTokenInfo(chainId: number, tokenList: Record<number, To
     log.info(tokenList);
     for (let index = 0; index < tokenList[chainId].length; index++) {
       let tokenData = tokenList[chainId][index];
-      if ((tokenData.address = NATIVE_ADDRESS)) {
+      if ((tokenData.address === config.NATIVE_ADDRESS)) {
         token = {
           address: tokenData.address,
           symbol: tokenData.symbol,
@@ -22,7 +22,7 @@ export function getNativeTokenInfo(chainId: number, tokenList: Record<number, To
       }
     }
 
-    log.info(`token: ${token}`);
+    log.info(`token: ${stringify(token)}`);
     return token;
   } catch (error: any) {
     log.error(`Error while getNativeTokenInfo ${stringify(error)}`);

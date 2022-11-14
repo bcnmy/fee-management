@@ -52,7 +52,6 @@ class HyphenBridge implements IBridgeService {
         .then((res: any) => res.json())
         .then((res: any) => res);
 
-      log.info(`Hyphen supported token response : ${stringify(supportedTokenResponse)}`);
       let tokens: Record<string, Record<number, string>> = {};
       for (let index = 0; index < supportedTokenResponse.supportedPairList.length; index++) {
         let tokenPair = supportedTokenResponse.supportedPairList[index];
@@ -130,7 +129,7 @@ class HyphenBridge implements IBridgeService {
       log.info(`depositGasSpend: ${depositGasSpend}`);
 
       let networkGasPrice = await this.transactionService.networkService.getGasPrice();
-      log.info(`networkGasPrice: ${networkGasPrice.gasPrice}`);
+      log.info(`networkGasPrice: ${stringify(networkGasPrice.gasPrice)}`);
 
       let depositCostInNativeCurrency = depositGasSpend.mul(networkGasPrice.gasPrice);
       log.info(`depositCostInNativeCurrency: ${depositCostInNativeCurrency} `);

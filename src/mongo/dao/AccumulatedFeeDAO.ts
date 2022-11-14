@@ -4,6 +4,7 @@ import { formatMessage, stringify } from '../../utils/common-utils';
 import { RESPONSE_CODES } from '../../config';
 
 export class AccumulatedFeeDAO {
+
   async getOne(searchParams: {}) {
     log.info(`Get AccumulatedFee data with params ${stringify(searchParams)}`);
     try {
@@ -17,16 +18,18 @@ export class AccumulatedFeeDAO {
           result.accumulatedFeeData = getUnique;
           log.info(`AccumulatedFee found in db with id ${result.accumulatedFeeData._id}`);
         } else {
+          log.info(`No Data found in DB with searchParam: ${searchParams}`);
           result = formatMessage(RESPONSE_CODES.NOT_FOUND, 'Not Found');
-          throw new Error(`AccumulatedFee.findOne response: ${stringify(result)}`);
         }
       } else {
         result = formatMessage(RESPONSE_CODES.BAD_REQUEST, `searchParams is either not valid or not in correct format`);
+        log.error(stringify(error.message ? error.message : error));
         throw new Error(`AccumulatedFee.findOne response: ${stringify(result)}`);
       }
 
       return result;
     } catch (error: any) {
+      log.error(stringify(error.message ? error.message : error));
       throw new Error(`Error while getting accumulatedFee data from  db`);
     }
   }
@@ -42,6 +45,7 @@ export class AccumulatedFeeDAO {
       response.dbObject = dbObject;
       log.info(`Fields Added Successfully into AccumulatedFee`);
     } catch (error: any) {
+      log.error(stringify(error.message ? error.message : error));
       throw new Error(
         `Error while adding to AccumulatedFee, Fields to be added : ${stringify({ ...fieldsToAdd })}`
       );
@@ -75,6 +79,7 @@ export class AccumulatedFeeDAO {
 
       return result;
     } catch (error: any) {
+      log.error(stringify(error.message ? error.message : error));
       throw new Error(`Error while updating data in AccumulatedFee db`);
     }
   }

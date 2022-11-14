@@ -1,6 +1,6 @@
 // import "{ } from "./types";
 import { BigNumber, ethers } from 'ethers';
-import { config, NATIVE_ADDRESS } from '../config';
+import { config } from '../config';
 import { IEVMAccount } from '../relayer-node-interfaces/IEVMAccount';
 import { ITokenPrice } from '../relayer-node-interfaces/ITokenPrice';
 import { ITransactionService } from '../relayer-node-interfaces/ITransactionService';
@@ -26,7 +26,7 @@ export class UniChainBalanceManager implements IBalanceManager {
     let tokenBalance: BigNumber;
     try {
       log.info(`tokenAddress: ${tokenAddress}`);
-      if (tokenAddress === NATIVE_ADDRESS) {
+      if (tokenAddress === config.NATIVE_ADDRESS) {
         tokenBalance = await this.transactionServiceMap[chainId].networkService.getBalance(
           this.masterFundingAccount.getPublicKey()
         );
@@ -44,7 +44,7 @@ export class UniChainBalanceManager implements IBalanceManager {
 
       log.info(`tokenBalance: ${tokenBalance.toString()}`);
     } catch (error: any) {
-      log.error(`error : ${stringify(error)}`);
+      log.error(stringify(error.message ? error.message : error));
       throw new Error(`Error while fetching token ${tokenAddress} balance on chain ${chainId}: ${stringify(error)}`);
     }
 

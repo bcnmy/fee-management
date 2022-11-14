@@ -1,6 +1,6 @@
 // import "{ } from "./types";
 import { BigNumber, ethers } from 'ethers';
-import { config, NATIVE_ADDRESS } from '../config';
+import { config } from '../config';
 import { IEVMAccount } from '../relayer-node-interfaces/IEVMAccount';
 import { ITokenPrice } from '../relayer-node-interfaces/ITokenPrice';
 import { ITransactionService } from '../relayer-node-interfaces/ITransactionService';
@@ -25,7 +25,7 @@ export class CrossChainBalanceManager implements IBalanceManager {
     let tokenBalance: BigNumber;
     try {
       log.info(`tokenAddress: ${tokenAddress}`);
-      if (tokenAddress === NATIVE_ADDRESS) {
+      if (tokenAddress === config.NATIVE_ADDRESS) {
         tokenBalance = await this.transactionServiceMap[chainId].networkService.getBalance(
           this.masterFundingAccount.getPublicKey()
         );
@@ -58,7 +58,6 @@ export class CrossChainBalanceManager implements IBalanceManager {
       for (let chainId in this.tokenList) {
         for (let tokenRecordIndex = 0; tokenRecordIndex < this.tokenList[chainId].length; tokenRecordIndex++) {
           try {
-            console.log(this.tokenList[chainId][tokenRecordIndex].address);
             let tokenBalance = await this.getBalance(
               Number(chainId),
               this.tokenList[chainId][tokenRecordIndex].address.toLowerCase()
@@ -67,7 +66,7 @@ export class CrossChainBalanceManager implements IBalanceManager {
             let tokenUsdPrice = await this.tokenPriceService.getTokenPrice(
               this.tokenList[chainId][tokenRecordIndex].symbol
             );
-            let balanceValueInUsd = tokenBalance.mul(tokenUsdPrice);
+            let balanceValueInUsd = tokenBalance.mul(tokenUsdPrice).div(ethers.BigNumber.from(10).pow(this.tokenList[chainId][tokenRecordIndex].decimal));
 
             usdBalanceOfMFA[chainId] = +balanceValueInUsd;
           } catch (error: any) {
