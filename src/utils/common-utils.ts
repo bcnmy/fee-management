@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 const formatMessage = (code: number, message: string) => {
   return {
     code,
@@ -24,26 +26,15 @@ function sortArrayOfObject(sortAttribute: string) {
   };
 }
 
-export { formatMessage, getTimeInMilliseconds, stringify, sortArrayOfObject };
+const randomInteger = (
+  min: number,
+  max: number,
+): number => Math.floor(Math.random() * (max - min + 1)) + min;
+
+const generateTransactionId = (data: string) => {
+  const hashData = `0x${crypto.createHash('sha256').update(data + Date.now() + randomInteger(1, 1000)).digest('hex')}`;
+  return hashData;
+};
 
 
-
-
-// function isNumeric(str: string) {
-//   try {
-//     if (typeof str !== 'string') return false;
-//     return !isNaN(parseFloat(str));
-//   } catch (e) {
-//     return false;
-//   }
-// }
-
-// const convertTokenAddressesToLowercase = (token: Token): Token => {
-//     const newToken = JSON.parse(JSON.stringify(token));
-//     for (const [key, value] of Object.entries(token)) {
-//         if (isNumeric(key) && typeof value !== "string" && value?.address) {
-//             newToken[key].address = value.address.toLowerCase();
-//         }
-//     }
-//     return newToken;
-// };
+export { formatMessage, getTimeInMilliseconds, stringify, sortArrayOfObject, generateTransactionId };

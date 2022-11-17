@@ -9,11 +9,9 @@ export function getNativeTokenInfo(chainId: number, tokenList: Record<number, To
   let token: TokenData | undefined;
 
   try {
-    log.info(`getNativeTokenInfo() chainId: ${chainId}`);
-    log.info(tokenList);
     for (let index = 0; index < tokenList[chainId].length; index++) {
       let tokenData = tokenList[chainId][index];
-      if ((tokenData.address === config.NATIVE_ADDRESS)) {
+      if (tokenData.address === config.NATIVE_ADDRESS_RELAYER || tokenData.address === config.NATIVE_ADDRESS_ROUTER) {
         token = {
           address: tokenData.address,
           symbol: tokenData.symbol,

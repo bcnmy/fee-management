@@ -12,7 +12,7 @@ export const AccumulatedFeeSchema = new Schema<IAccumulatedFee>({
   endTime: {
     type: Number,
   },
-  network: {
+  chainId: {
     type: Number,
     required: true
   },

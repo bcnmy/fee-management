@@ -25,7 +25,7 @@ export class CrossChainBalanceManager implements IBalanceManager {
     let tokenBalance: BigNumber;
     try {
       log.info(`tokenAddress: ${tokenAddress}`);
-      if (tokenAddress === config.NATIVE_ADDRESS) {
+      if (tokenAddress === config.NATIVE_ADDRESS_RELAYER || tokenAddress === config.NATIVE_ADDRESS_ROUTER) {
         tokenBalance = await this.transactionServiceMap[chainId].networkService.getBalance(
           this.masterFundingAccount.getPublicKey()
         );

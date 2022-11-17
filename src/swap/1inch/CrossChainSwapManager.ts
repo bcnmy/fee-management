@@ -18,7 +18,7 @@ export class CrossChainSwapManager implements ISwapManager {
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
   tokenList: Record<number, TokenData[]>;
-  balanceThreshold: Record<number, number>;
+  balanceThreshold: Record<number, Record<string, number>>;
   masterFundingAccount: IEVMAccount;
 
   constructor(swapParams: SwapParams) {
@@ -28,6 +28,33 @@ export class CrossChainSwapManager implements ISwapManager {
     this.tokenList = swapParams.tokenList;
     this.balanceThreshold = swapParams.balanceThreshold;
     this.masterFundingAccount = swapParams.masterFundingAccount;
+  }
+
+  getSwapTokenList(chainId: number): Record<string, string> {
+    return this.oneIncheTokenMap[chainId];
+  }
+
+  async initialiseSwapTokenList(chainId: number): Promise<void> {
+    try {
+      log.info(`getSupportedTokenList() chainId: ${chainId}`);
+      const supportedTokenurl = this.apiRequestUrl('/tokens', chainId, null);
+
+      log.info(`supportedTokenurl: ${supportedTokenurl}`);
+      const response = await fetch(supportedTokenurl)
+        .then((res: any) => res.json())
+        .then((res: any) => res);
+
+      let tokenList: Record<string, string> = {};
+      for (let tokenAddress in response.tokens) {
+        let symbol = response.tokens[tokenAddress].symbol;
+        tokenList[symbol] = tokenAddress;
+      }
+
+      this.oneIncheTokenMap[chainId] = response.tokenList
+      // return response.tokenList;
+    } catch (error: any) {
+      throw new Error(error);
+    }
   }
 
   initiateSwap(chainId: number): Promise<unknown> {
@@ -61,34 +88,7 @@ export class CrossChainSwapManager implements ISwapManager {
     return config.oneInchApiBaseUrl + chainId + methodName + '?' + new URLSearchParams(queryParams).toString();
   }
 
-  getSwapTokenList(chainId: number): Record<string, string> {
-    return this.oneIncheTokenMap[chainId];
-  }
 
-  async initialiseSwapTokenList(chainId: number): Promise<void> {
-    try {
-      log.info(`getSupportedTokenList() chainId: ${chainId}`);
-      const supportedTokenurl = this.apiRequestUrl('/tokens', chainId, null);
-
-      log.info(`supportedTokenurl: ${supportedTokenurl}`);
-      const response = await fetch(supportedTokenurl)
-        .then((res: any) => res.json())
-        .then((res: any) => res);
-      log.info(`getSupportedTokenList() response: ${stringify(response)}`);
-
-      let tokenList: Record<string, string> = {};
-      for (let tokenAddress in response.tokens) {
-        let symbol = response.tokens[tokenAddress].symbol;
-        tokenList[symbol] = tokenAddress;
-      }
-
-      log.info(`tokenList: ${stringify(tokenList)}`);
-      this.oneIncheTokenMap[chainId] = response.tokenList
-      // return response.tokenList;
-    } catch (error: any) {
-      throw new Error(error);
-    }
-  }
 
   async getSwapCost(swapCostParams: SwapCostParams): Promise<ethers.BigNumber> {
     let fromTokenBalance = await this.balanceManager.getBalance(

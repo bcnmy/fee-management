@@ -9,7 +9,7 @@ import { IBalanceManager } from './interfaces/IBalanceManager';
 import { log } from '../logs';
 import { stringify } from '../utils/common-utils';
 
-export class UniChainBalanceManager implements IBalanceManager {
+export class SingleChainBalanceManager implements IBalanceManager {
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   masterFundingAccount: IEVMAccount;
   tokenList: Record<number, TokenData[]>;
@@ -24,11 +24,12 @@ export class UniChainBalanceManager implements IBalanceManager {
 
   async getBalance(chainId: number, tokenAddress: string): Promise<BigNumber> {
     let tokenBalance: BigNumber;
+    let mfaPublicKey = this.masterFundingAccount.getPublicKey();
     try {
       log.info(`tokenAddress: ${tokenAddress}`);
-      if (tokenAddress === config.NATIVE_ADDRESS) {
+      if (tokenAddress === config.NATIVE_ADDRESS_RELAYER || tokenAddress === config.NATIVE_ADDRESS_ROUTER) {
         tokenBalance = await this.transactionServiceMap[chainId].networkService.getBalance(
-          this.masterFundingAccount.getPublicKey()
+          mfaPublicKey
         );
 
       } else {
@@ -36,16 +37,16 @@ export class UniChainBalanceManager implements IBalanceManager {
           config.erc20Abi,
           tokenAddress,
           'balanceOf',
-          [this.masterFundingAccount.getPublicKey()]
+          [mfaPublicKey]
         );
 
         tokenBalance = ethers.BigNumber.from(tokenBalanceFromChain);
       }
 
-      log.info(`tokenBalance: ${tokenBalance.toString()}`);
+      log.info(`MFA ${mfaPublicKey} balance for token ${tokenAddress} is: ${tokenBalance.toString()}`);
     } catch (error: any) {
       log.error(stringify(error.message ? error.message : error));
-      throw new Error(`Error while fetching token ${tokenAddress} balance on chain ${chainId}: ${stringify(error)}`);
+      throw new Error(`Error while fetching MFA ${mfaPublicKey} balance for token ${tokenAddress} on chain ${chainId}: ${stringify(error)}`);
     }
 
     return tokenBalance;

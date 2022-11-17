@@ -23,7 +23,7 @@ export class AccumulatedFeeDAO {
         }
       } else {
         result = formatMessage(RESPONSE_CODES.BAD_REQUEST, `searchParams is either not valid or not in correct format`);
-        log.error(stringify(error.message ? error.message : error));
+        log.error(`AccumulatedFee.findOne response: ${stringify(result)}`);
         throw new Error(`AccumulatedFee.findOne response: ${stringify(result)}`);
       }
 

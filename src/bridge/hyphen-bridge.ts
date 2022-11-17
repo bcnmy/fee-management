@@ -47,7 +47,7 @@ class HyphenBridge implements IBridgeService {
       const supportedTokenurl = this.apiRequestUrl(config.hyphenSupportedTokenEndpoint, {
         networkId: chainId,
       });
-      log.info(`Supported Token URL : ${supportedTokenurl}`);
+
       const supportedTokenResponse: any = await fetch(supportedTokenurl)
         .then((res: any) => res.json())
         .then((res: any) => res);
@@ -64,7 +64,6 @@ class HyphenBridge implements IBridgeService {
         }
       }
 
-      log.info(`Tokens : ${stringify(tokens)}`);
       this.hyphenSupportedTokenMap[chainId] = tokens;
     } catch (error: any) {
       log.error(`error : ${stringify(error)}`);
@@ -99,7 +98,7 @@ class HyphenBridge implements IBridgeService {
       let rawDepositTransaction;
       let value = ethers.utils.parseEther('0');
 
-      if (depositParams.tokenAddress.toLowerCase() === config.NATIVE_ADDRESS) {
+      if (depositParams.tokenAddress.toLowerCase() === config.NATIVE_ADDRESS_ROUTER) {
         log.info(`Get depositNative rawDepositTransaction`);
         rawDepositTransaction = await hyphenContract.populateTransaction.depositNative(
           depositParams.receiver,
@@ -172,7 +171,7 @@ class HyphenBridge implements IBridgeService {
 
       let exitTokenUsdPrice;
 
-      if (brigeCostParams.toTokenAddress.toLowerCase() === config.NATIVE_ADDRESS) {
+      if (brigeCostParams.toTokenAddress.toLowerCase() === config.NATIVE_ADDRESS_ROUTER) {
         exitTokenUsdPrice = await this.tokenPriceService.getTokenPrice(
           config.NATIVE_TOKEN_SYMBOL[brigeCostParams.toChainId]
         );

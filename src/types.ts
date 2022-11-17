@@ -68,7 +68,7 @@ export type SwapParams = {
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
   tokenList: Record<number, TokenData[]>;
-  balanceThreshold: Record<number, number>,
+  balanceThreshold: Record<number, Record<string, number>>,
   masterFundingAccount: IEVMAccount;
   label: string
 };
@@ -148,7 +148,7 @@ export type AppConfig = {
   tokenList: Record<number, TokenData[]>;
   feeSpendThreshold: Record<number, number>;
   InitialFundingAmountInUsd: Record<number, number>;
-  balanceThreshold: Record<number, number>,
+  balanceThreshold: Record<number, Record<string, number>>;
 };
 
 export type GasUsedThresholdPerNetwork = {
@@ -234,8 +234,11 @@ export type TransactionDataType = {
   data: string;
   gasLimit: string; // value will be in hex
   speed?: GasPriceType;
-  userAddress?: string;
+  walletAddress: string,
   transactionId: string;
+  metaData?: {
+    dappAPIKey: string
+  }
 };
 
 export type HyphenDepositParams = {
@@ -270,3 +273,15 @@ export type RetryTransactionQueueData = {
   event: SocketEventType
 };
 export type RetryTransactionDataType = RetryTransactionQueueData;
+
+export type RawTransactionParam = {
+  data: string;
+  gasPrice: string;
+  to: string;
+  value: string;
+  from: string;
+  gasLimit: string;
+  nonce: string;
+  chainId: number;
+  gas: string
+}

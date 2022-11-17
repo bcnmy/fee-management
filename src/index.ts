@@ -27,7 +27,7 @@ import { HyphenBridge } from './bridge/hyphen-bridge';
 import { IBalanceManager } from './gas-management/interfaces/IBalanceManager';
 import { CrossChainBalanceManager } from './gas-management/CrossChainBalanceManager';
 import type { Lock } from "redlock";
-import { UniChainBalanceManager } from './gas-management/UniChainBalanceManager';
+import { SingleChainBalanceManager } from './gas-management/SingleChainBalanceManager';
 import { SingleChainSwapManager } from './swap/1inch/SingleChainSwapManager';
 import { Mongo } from './mongo/Mongo';
 
@@ -52,6 +52,7 @@ class FeeManager {
       if (this.validateParams(feeManagerParams)) {
 
         this.masterFundingAccount = feeManagerParams.masterFundingAccount;
+
         this.transactionServiceMap = feeManagerParams.transactionServiceMap;
 
         this.relayerAddresses = feeManagerParams.relayerAddresses;
@@ -68,7 +69,7 @@ class FeeManager {
         this.accumulatedFeeDao = new AccumulatedFeeDAO();
 
         if (feeManagerParams.mode === Mode.SINGLE_CHAIN) {
-          this.balanceManager = new UniChainBalanceManager({
+          this.balanceManager = new SingleChainBalanceManager({
             transactionServiceMap: this.transactionServiceMap,
             masterFundingAccount: this.masterFundingAccount,
             tokenList: this.appConfig.tokenList,
@@ -232,12 +233,12 @@ class FeeManager {
         // log.info(`Lock acquired for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
 
         // TODO: Sachin: From the dao, get this info from cache and if not found get from db.
-        let totalFeePaidFromDb = await this.accumulatedFeeDao.getOne({ network: chainId, transactionType: Mode.SINGLE_CHAIN, status: FEE_CONVERSION_DB_STATUSES.PENDING });
+        let totalFeePaidFromDb = await this.accumulatedFeeDao.getOne({ chainId, transactionType: Mode.SINGLE_CHAIN, status: FEE_CONVERSION_DB_STATUSES.PENDING });
         log.info(`totalFeePaidFromDb: ${stringify(totalFeePaidFromDb)}`);
 
         if (totalFeePaidFromDb && totalFeePaidFromDb.accumulatedFeeData) {
           let nativeFeeToBeUpdatedInDB = transactionFee.add(
-            totalFeePaidFromDb.accumulatedFeeData.feeAccumulatedInNative
+            totalFeePaidFromDb.accumulatedFeeData.feeAccumulatedInNative.toString()
           );
           log.info(`nativeFeeToBeUpdatedInDB: ${nativeFeeToBeUpdatedInDB}`);
           let feeInUsdToBeUpdatedInDB: number = transactionFeePaidInUsd + totalFeePaidFromDb.accumulatedFeeData.feeAccumulatedInUSD;
@@ -267,7 +268,7 @@ class FeeManager {
             feeAccumulatedInNative: transactionFee,
             feeAccumulatedInUSD: transactionFeePaidInUsd,
             tokenSymbol: nativeTokenInfo.symbol,
-            network: chainId,
+            chainId,
             status: FEE_CONVERSION_DB_STATUSES.PENDING,
             createdOn: getTimeInMilliseconds(),
             transactionType: Mode.SINGLE_CHAIN
@@ -280,8 +281,8 @@ class FeeManager {
           await this.cacheService.set(getGasFeePaidKey(chainId), transactionFeePaidInUsd.toString());
         }
       } else {
-        log.error(`gasUsed property not found in transaction receipt for network id ${chainId}`);
-        throw new Error(`gasUsed property not found in transaction receipt for network id ${chainId}`);
+        log.error(`gasUsed property not found in transaction receipt for chainId ${chainId}`);
+        throw new Error(`gasUsed property not found in transaction receipt for chainId ${chainId}`);
       }
     } catch (error: any) {
       log.error(error);
@@ -382,7 +383,7 @@ class FeeManager {
   //           feeAccumulatedInNative: transactionFee,
   //           feeAccumulatedInUSD: transactionFeePaidInUsd,
   //           tokenSymbol: nativeTokenInfo.symbol,
-  //           network: chainId,
+  //           chainId,
   //           status: FEE_CONVERSION_DB_STATUSES.PENDING,
   //           createdOn: getTimeInMilliseconds(),
   //           transactionType: Mode.CROSS_CHAIN
@@ -395,8 +396,8 @@ class FeeManager {
   //         await this.cacheService.set(getGasFeePaidKey(chainId), transactionFeePaidInUsd.toString());
   //       }
   //     } else {
-  //       log.error(`gasUsed property not found in transaction receipt for network id ${chainId}`);
-  //       throw new Error(`gasUsed property not found in transaction receipt for network id ${chainId}`);
+  //       log.error(`gasUsed property not found in transaction receipt for chainId ${chainId}`);
+  //       throw new Error(`gasUsed property not found in transaction receipt for chainId ${chainId}`);
   //     }
   //   } catch (error: any) {
   //     log.error(error);
