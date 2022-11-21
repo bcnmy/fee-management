@@ -1,16 +1,11 @@
-import { IDBService } from './relayer-node-interfaces/IDBService';
 import { ICacheService } from './relayer-node-interfaces/ICacheService';
 import { ITokenPrice } from './relayer-node-interfaces/ITokenPrice';
-import { Mongoose } from 'mongoose';
 import { BigNumber, ethers } from 'ethers';
 import { ITransactionService } from './relayer-node-interfaces/ITransactionService';
 import { IEVMAccount } from './relayer-node-interfaces/IEVMAccount';
 import { ISwapManager } from './swap/interfaces/ISwapManager';
 import { IBridgeService } from './bridge/interfaces/IBridgeService';
 import { IBalanceManager } from './gas-management/interfaces/IBalanceManager';
-import { INetwork } from './blockchain/interface/INetwork';
-import { type } from 'os';
-import { ITransactionDAO } from './relayer-node-interfaces/ITransactionDAO';
 
 export type Environment = 'test' | 'staging' | 'prod';
 

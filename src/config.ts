@@ -54,9 +54,9 @@ config.NATIVE_TOKEN_SYMBOL = {
   56: "BNB",
 };
 
-config.blockConfimration = {
+config.noOfDepositConfirmation = {
   1: 30,
-  137: 50,
+  137: 10,
   56: 20,
 };
 
