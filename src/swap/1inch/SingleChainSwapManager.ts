@@ -1,6 +1,6 @@
 import { config } from '../../config';
 import { ISwapManager } from '../interfaces/ISwapManager';
-import { EVMRawTransactionType, GasPriceType, QuoteRequestParam, RawTransactionParam, SwapCostParams, SwapParams, TokenData, TransactionType } from "../../types";
+import { AppConfig, EVMRawTransactionType, GasPriceType, QuoteRequestParam, RawTransactionParam, SwapCostParams, SwapParams, TransactionType } from "../../types";
 import { log } from '../../logs';
 import { generateTransactionId, stringify } from '../../utils/common-utils';
 import { BigNumber, ethers } from 'ethers';
@@ -17,16 +17,16 @@ export class SingleChainSwapManager implements ISwapManager {
   tokenPriceService: ITokenPrice;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
-  tokenList: Record<number, TokenData[]>;
+  appConfig: AppConfig;
   balanceThreshold: Record<number, Record<string, number>>;
   masterFundingAccount: IEVMAccount;
   label: string;
 
   constructor(swapParams: SwapParams) {
+    this.appConfig = swapParams.appConfig;
     this.tokenPriceService = swapParams.tokenPriceService;
     this.transactionServiceMap = swapParams.transactionServiceMap;
     this.balanceManager = swapParams.balanceManager;
-    this.tokenList = swapParams.tokenList;
     this.balanceThreshold = swapParams.balanceThreshold;
     this.masterFundingAccount = swapParams.masterFundingAccount;
     this.label = swapParams.label ? swapParams.label : "SingleChainAccountsManager"
@@ -66,9 +66,9 @@ export class SingleChainSwapManager implements ISwapManager {
     //TODO: Sachin: To be done later as optimisation: Use Promise.all to parallely calculate token balances https://www.geeksforgeeks.org/javascript-promise-all-method/
     try {
       let swapHashMap: Record<string, Record<string, string>> = {};
-      for (let tokenRecordIndex = 0; tokenRecordIndex < this.tokenList[chainId].length; tokenRecordIndex++) {
-        let tokenAddress = this.tokenList[chainId][tokenRecordIndex].address.toLowerCase();
-        let tokenDecimal = this.tokenList[chainId][tokenRecordIndex].decimal;
+      for (let tokenRecordIndex = 0; tokenRecordIndex < this.appConfig.tokenList[chainId].length; tokenRecordIndex++) {
+        let tokenAddress = this.appConfig.tokenList[chainId][tokenRecordIndex].address.toLowerCase();
+        let tokenDecimal = this.appConfig.tokenList[chainId][tokenRecordIndex].decimal;
         if (tokenAddress !== config.NATIVE_ADDRESS_RELAYER && tokenAddress !== config.NATIVE_ADDRESS_ROUTER) {
           try {
             let tokenBalance = await this.balanceManager.getBalance(
@@ -77,7 +77,7 @@ export class SingleChainSwapManager implements ISwapManager {
             );
 
             let tokenUsdPrice = await this.tokenPriceService.getTokenPrice(
-              this.tokenList[chainId][tokenRecordIndex].symbol
+              this.appConfig.tokenList[chainId][tokenRecordIndex].symbol
             );
             // TODO: Sachin: Divide this by token decimals - done
             let balanceValueInUsd = tokenBalance.mul(tokenUsdPrice).div(ethers.BigNumber.from(10).pow(tokenDecimal));
@@ -88,7 +88,7 @@ export class SingleChainSwapManager implements ISwapManager {
                 let approveRequest = await this.approveSpender(chainId, config.INFINITE_APPROVAL_AMOUNT, tokenAddress);
                 let approveReceipt = await this.transactionServiceMap[chainId].networkService.ethersProvider.waitForTransaction(
                   approveRequest.hash,
-                  config.noOfDepositConfirmation[chainId],
+                  this.appConfig.noOfDepositConfirmation[chainId],
                   60000
                 );
                 if (!approveReceipt || approveReceipt.status === 0) {

@@ -7,6 +7,34 @@ import { ISwapManager } from './swap/interfaces/ISwapManager';
 import { IBridgeService } from './bridge/interfaces/IBridgeService';
 import { IBalanceManager } from './gas-management/interfaces/IBalanceManager';
 
+type ChainIdWithStringValueType = {
+  [key: number]: string
+};
+
+type ChainIdWithArrayStringValueType = {
+  [key: number]: string[]
+};
+
+type ChainIdWithNumberValueType = {
+  [key: number]: number
+};
+
+type ChainIdWithBigNumberValueType = {
+  [key: number]: ethers.BigNumber
+};
+
+type ChainIdAndTokenWithNumberValueType = {
+  [key: number]: {
+    [key: string]: number;
+  }
+};
+
+type ChainIdAndTokenWithStringValueType = {
+  [key: number]: {
+    [key: string]: string;
+  }
+};
+
 export type Environment = 'test' | 'staging' | 'prod';
 
 export enum TransactionType {
@@ -62,7 +90,7 @@ export type SwapParams = {
   tokenPriceService: ITokenPrice;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
-  tokenList: Record<number, TokenData[]>;
+  appConfig: AppConfig;
   balanceThreshold: Record<number, Record<string, number>>,
   masterFundingAccount: IEVMAccount;
   label: string
@@ -82,7 +110,7 @@ export type BalanceManagerParams = {
 
 export type BridgeParams = {
   transactionService: ITransactionService<IEVMAccount, EVMRawTransactionType>;
-  // networkMap: Record<number, INetwork>;
+  appConfig: AppConfig;
   liquidityPoolAddress: string;
   tokenPriceService: ITokenPrice;
   masterFundingAccount: IEVMAccount;
@@ -107,6 +135,7 @@ export type SwapCostParams = {
   fromChainId: number;
   toChainId: number;
   swapFromTokenAddress: string;
+  swapToTokenAddress: string;
 };
 
 export type QuoteRequestParam = {
@@ -141,9 +170,12 @@ export type rpcUrlMap = {
 
 export type AppConfig = {
   tokenList: Record<number, TokenData[]>;
-  feeSpendThreshold: Record<number, number>;
-  InitialFundingAmountInUsd: Record<number, number>;
-  balanceThreshold: Record<number, Record<string, number>>;
+  nativeTokenSymbol: ChainIdWithStringValueType,
+  noOfDepositConfirmation: ChainIdWithNumberValueType,
+  hyphenLiquidityPoolAddress: ChainIdWithStringValueType,
+  balanceThreshold: ChainIdAndTokenWithNumberValueType;
+  feeSpendThreshold: ChainIdWithNumberValueType;
+  initialFundingAmountInUsd: ChainIdWithNumberValueType;
 };
 
 export type GasUsedThresholdPerNetwork = {

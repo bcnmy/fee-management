@@ -1,8 +1,7 @@
 import { AccumulatedFee } from '../models/accumulated-fee';
 import { log } from '../../logs';
 import { formatMessage, stringify } from '../../utils/common-utils';
-import { RESPONSE_CODES } from '../../config';
-
+import { config } from '../../config';
 export class AccumulatedFeeDAO {
 
   async getOne(searchParams: {}) {
@@ -14,15 +13,15 @@ export class AccumulatedFeeDAO {
         const getUnique: JSON = await AccumulatedFee.findOne(searchParams);
 
         if (getUnique) {
-          result = formatMessage(RESPONSE_CODES.SUCCESS, 'AccumulatedFee data fetched successfully');
+          result = formatMessage(config.RESPONSE_CODES.SUCCESS, 'AccumulatedFee data fetched successfully');
           result.accumulatedFeeData = getUnique;
           log.info(`AccumulatedFee found in db with id ${result.accumulatedFeeData._id}`);
         } else {
           log.info(`No Data found in DB with searchParam: ${searchParams}`);
-          result = formatMessage(RESPONSE_CODES.NOT_FOUND, 'Not Found');
+          result = formatMessage(config.RESPONSE_CODES.NOT_FOUND, 'Not Found');
         }
       } else {
-        result = formatMessage(RESPONSE_CODES.BAD_REQUEST, `searchParams is either not valid or not in correct format`);
+        result = formatMessage(config.RESPONSE_CODES.BAD_REQUEST, `searchParams is either not valid or not in correct format`);
         log.error(`AccumulatedFee.findOne response: ${stringify(result)}`);
         throw new Error(`AccumulatedFee.findOne response: ${stringify(result)}`);
       }
@@ -41,7 +40,7 @@ export class AccumulatedFeeDAO {
       log.info(`AccumulatedFee db Fields to be added : ${stringify({ ...fieldsToAdd })}`);
       const accumulatedFee = new AccumulatedFee({ ...fieldsToAdd });
       const dbObject = await accumulatedFee.save();
-      response = formatMessage(RESPONSE_CODES.SUCCESS, 'Added Successfully');
+      response = formatMessage(config.RESPONSE_CODES.SUCCESS, 'Added Successfully');
       response.dbObject = dbObject;
       log.info(`Fields Added Successfully into AccumulatedFee`);
     } catch (error: any) {
@@ -66,10 +65,10 @@ export class AccumulatedFeeDAO {
         );
 
         log.info(`AccumulatedFee successfully updated`);
-        result = formatMessage(RESPONSE_CODES.SUCCESS, 'AccumulatedFee updated successfully');
+        result = formatMessage(config.RESPONSE_CODES.SUCCESS, 'AccumulatedFee updated successfully');
       } else {
         result = formatMessage(
-          RESPONSE_CODES.EXPECTATION_FAILED,
+          config.RESPONSE_CODES.EXPECTATION_FAILED,
           `accumulatedFeeId is not defined or fieldsToUpdate is not in correct format`
         );
         throw new Error(`AccumulatedFee.findByIdAndUpdate response: ${stringify(result)}`);

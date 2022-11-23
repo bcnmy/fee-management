@@ -5,7 +5,7 @@ import {
   RouteParams,
   Mode,
 } from './types';
-import { config, SIGNATURE_TYPES, RESPONSE_CODES, EXIT_STATUS, FEE_CONVERSION_DB_STATUSES } from './config';
+import { config } from './config';
 import { ICacheService } from './relayer-node-interfaces/ICacheService';
 import { ITokenPrice } from './relayer-node-interfaces/ITokenPrice';
 import { log } from './logs';
@@ -14,12 +14,12 @@ import { getTimeInMilliseconds, stringify } from './utils/common-utils';
 import { getNativeTokenInfo } from './utils/token-utils';
 import { ethers } from 'ethers';
 import { AccumulatedFeeDAO } from './mongo/dao';
-import { DeltaManager } from './gas-management/delta-manager';
+import { DeltaManager } from './gas-management/DeltaManager';
 import { IDeltaManager } from './gas-management/interfaces/IDeltaManager';
 import { ITransactionService } from './relayer-node-interfaces/ITransactionService';
 import { IEVMAccount } from './relayer-node-interfaces/IEVMAccount';
 import { IPathManager } from './gas-management/interfaces/IPathManager';
-import { PathManager } from './gas-management/path-manager';
+import { PathManager } from './gas-management/PathManager';
 import { ISwapManager } from './swap/interfaces/ISwapManager';
 import { IBridgeService } from './bridge/interfaces/IBridgeService';
 import { CrossChainSwapManager } from './swap/1inch/CrossChainSwapManager';
@@ -44,7 +44,7 @@ class FeeManager {
   bridgeServiceMap: Record<number, IBridgeService> = {};
   balanceManager!: IBalanceManager;
   transactionServiceMap!: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
-  oneIncheTokenMap: Record<number, Record<string, string>> = {};
+  oneInchTokenMap: Record<number, Record<string, string>> = {};
   hyphenSupportedTokenMap: Record<number, Record<string, Record<number, string>>> = {};
 
   constructor(feeManagerParams: FeeManagerParams) {
@@ -65,6 +65,7 @@ class FeeManager {
         this.tokenPriceService = feeManagerParams.tokenPriceService;
 
         this.cacheService = feeManagerParams.cacheService;
+        this.cacheService.connect();
 
         this.accumulatedFeeDao = new AccumulatedFeeDAO();
 
@@ -81,7 +82,7 @@ class FeeManager {
             transactionServiceMap: this.transactionServiceMap,
             masterFundingAccount: this.masterFundingAccount,
             balanceManager: this.balanceManager,
-            tokenList: this.appConfig.tokenList,
+            appConfig: this.appConfig,
             balanceThreshold: this.appConfig.balanceThreshold,
             label: feeManagerParams.label
           });
@@ -98,7 +99,7 @@ class FeeManager {
             masterFundingAccount: this.masterFundingAccount,
             transactionServiceMap: this.transactionServiceMap,
             balanceManager: this.balanceManager,
-            tokenList: this.appConfig.tokenList,
+            appConfig: this.appConfig,
             balanceThreshold: this.appConfig.balanceThreshold,
             label: feeManagerParams.label
           });
@@ -114,8 +115,9 @@ class FeeManager {
 
         for (let chainId in this.transactionServiceMap) {
           let bridgeService = new HyphenBridge({
+            appConfig: this.appConfig,
             transactionService: this.transactionServiceMap[chainId],
-            liquidityPoolAddress: config.hyphenLiquidityPoolAddress[chainId],
+            liquidityPoolAddress: this.appConfig.hyphenLiquidityPoolAddress[chainId],
             tokenPriceService: this.tokenPriceService,
             masterFundingAccount: this.masterFundingAccount,
           });
@@ -200,9 +202,9 @@ class FeeManager {
      * if yes, add gasPrice and update db & cache
      * Check if gasFeeSpend > threshold, then its time for convert erc20 tokens to native currency
      */
-  async onTransactionSCW(transactionHash: string, chainId: number) {
+  async onTransactionSCW(transactionReceipt: ethers.providers.TransactionReceipt, chainId: number) {
 
-    let transactionReceipt: ethers.providers.TransactionReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(transactionHash);
+    // let transactionReceipt: ethers.providers.TransactionReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(transactionHash);
     if (!transactionReceipt) {
       throw new Error(`Transaction Receipt is undefined`);
     }
@@ -229,7 +231,10 @@ class FeeManager {
 
         // TODO: Sachin: Take the redis db lock here before quering the DB - done
         log.info(`trying to acquire lock for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
-        redisLock = await this.cacheService.getRedLock().acquire([`locks:${chainId}_${mfaPublicKey}_scw`], config.cache.SCW_LOCK_TTL);
+        if (!this.cacheService || !this.cacheService.getRedLock()) {
+          throw new Error("Error while getting Redlock instance");
+        }
+        redisLock = await this.cacheService.getRedLock()?.acquire([`locks:${chainId}_${mfaPublicKey}_scw`], config.cache.SCW_LOCK_TTL);
         if (!redisLock) {
           log.error(`'Redlock not initialized'`);
           throw new Error('Redlock not initialized');
@@ -238,7 +243,7 @@ class FeeManager {
 
         try {
 
-          let totalFeePaidFromDb = await this.accumulatedFeeDao.getOne({ chainId, transactionType: Mode.SINGLE_CHAIN, status: FEE_CONVERSION_DB_STATUSES.PENDING });
+          let totalFeePaidFromDb = await this.accumulatedFeeDao.getOne({ chainId, transactionType: Mode.SINGLE_CHAIN, status: config.FEE_CONVERSION_DB_STATUSES.PENDING });
           log.info(`totalFeePaidFromDb: ${stringify(totalFeePaidFromDb)}`);
 
           if (totalFeePaidFromDb && totalFeePaidFromDb.accumulatedFeeData) {
@@ -274,12 +279,12 @@ class FeeManager {
               feeAccumulatedInUSD: transactionFeePaidInUsd,
               tokenSymbol: nativeTokenInfo.symbol,
               chainId,
-              status: FEE_CONVERSION_DB_STATUSES.PENDING,
+              status: config.FEE_CONVERSION_DB_STATUSES.PENDING,
               createdOn: getTimeInMilliseconds(),
               transactionType: Mode.SINGLE_CHAIN
             });
 
-            if (addAccumulatedFeeToDBRequest.code !== RESPONSE_CODES.SUCCESS) {
+            if (addAccumulatedFeeToDBRequest.code !== config.RESPONSE_CODES.SUCCESS) {
               log.error(`Error While adding AccumulatedFee in DB`);
               throw new Error(`Error while adding to AccumulatedFee`);
             }
@@ -309,114 +314,119 @@ class FeeManager {
    * if not, create a new entry with PENDING status with incomingGasFee
    * set value in cache with incomingGasFee as value
    */
-  // async onTransactionCCMP(transactionReceipt: ethers.providers.TransactionReceipt, chainId: number) {
-  //   // TODO: Sachin: Check for undefined value of transactionReceipt - done
-  //   if (!transactionReceipt) {
-  //     throw new Error(`Transaction Receipt is undefined`);
-  //   }
-  //   let redisLock: Lock | undefined;
-  //   let mfaPublicKey: string = this.masterFundingAccount.getPublicKey();
-  //   try {
-  //     if (transactionReceipt.gasUsed) {
-  //       // TODO: Sachin: Rename the method to getNativeTokenInfo - done
-  //       // TODO: Sachin: Rename variable to nativeTokenInfo - done
-  //       let nativeTokenInfo = getNativeTokenInfo(chainId, this.appConfig.tokenList);
-  //       if (!nativeTokenInfo) {
-  //         log.error(`native Token Info not Available`);
-  //         throw new Error(`Native Token Info not Available for chain id ${chainId}`);
-  //       }
-  //       let networkGasPrice = await this.transactionServiceMap[chainId].networkService.getGasPrice();
-  //       log.info(`networkGasPrice: ${networkGasPrice}`);
+  async onTransactionCCMP(transactionReceipt: ethers.providers.TransactionReceipt, chainId: number) {
+    // TODO: Sachin: Check for undefined value of transactionReceipt - done
+    if (!transactionReceipt) {
+      throw new Error(`Transaction Receipt is undefined`);
+    }
+    let redisLock: Lock | undefined;
+    let mfaPublicKey: string = this.masterFundingAccount.getPublicKey();
+    try {
+      if (transactionReceipt.gasUsed) {
+        // TODO: Sachin: Rename the method to getNativeTokenInfo - done
+        // TODO: Sachin: Rename variable to nativeTokenInfo - done
+        let nativeTokenInfo = getNativeTokenInfo(chainId, this.appConfig.tokenList);
+        if (!nativeTokenInfo) {
+          log.error(`native Token Info not Available`);
+          throw new Error(`Native Token Info not Available for chain id ${chainId}`);
+        }
+        let networkGasPrice = await this.transactionServiceMap[chainId].networkService.getGasPrice();
+        log.info(`networkGasPrice: ${networkGasPrice}`);
 
-  //       let transactionFee = transactionReceipt.gasUsed.mul(networkGasPrice.gasPrice);
-  //       log.info(`transactionFee: ${transactionFee}`);
+        let transactionFee = transactionReceipt.gasUsed.mul(networkGasPrice.gasPrice);
+        log.info(`transactionFee: ${transactionFee}`);
 
-  //       let tokenUsdPrice = await this.tokenPriceService.getTokenPrice(nativeTokenInfo.symbol);
-  //       log.info(`tokenUsdPrice: ${tokenUsdPrice}`);
+        let tokenUsdPrice = await this.tokenPriceService.getTokenPrice(nativeTokenInfo.symbol);
+        log.info(`tokenUsdPrice: ${tokenUsdPrice}`);
 
-  //       let transactionFeePaidInUsd = transactionFee.mul(tokenUsdPrice).div(nativeTokenInfo.decimal);
-  //       log.info(`transactionFeePaidInUsd: ${transactionFeePaidInUsd}`);
+        let transactionFeePaidInUsd = parseFloat((transactionFee.mul(tokenUsdPrice)).toString()) / Math.pow(10, nativeTokenInfo.decimal);
+        log.info(`transactionFeePaidInUsd: ${transactionFeePaidInUsd}`);
 
-  //       // TODO: Sachin: Take the redis db lock here before quering the DB - done
-  //       redisLock = await this.cacheService.getRedLock().lock(`locks:${chainId}_${mfaPublicKey}_ccmp`, config.cache.LOCK_TTL);
-  //       log.info(`Lock acquired for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
+        // TODO: Sachin: Take the redis db lock here before quering the DB - done
+        log.info(`trying to acquire lock for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
+        if (!this.cacheService || !this.cacheService.getRedLock()) {
+          throw new Error("Error while getting Redlock instance");
+        }
+        redisLock = await this.cacheService.getRedLock()?.acquire([`locks:${chainId}_${mfaPublicKey}_ccmp`], config.cache.SCW_LOCK_TTL);
+        if (!redisLock) {
+          log.error(`'Redlock not initialized'`);
+          throw new Error('Redlock not initialized');
+        }
+        log.info(`Lock acquired for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
 
-  //       // TODO: Sachin: From the dao, get this info from cache and if not found get from db.
-  //       let totalFeePaidFromDb = await this.accumulatedFeeDao.getOne({ chainId, transactionType: Mode.CROSS_CHAIN, status: 'PENDING' });
-  //       log.info(`totalFeePaidFromDb: ${totalFeePaidFromDb}`);
+        // TODO: Sachin: From the dao, get this info from cache and if not found get from db.
+        try {
+          let totalFeePaidFromDb = await this.accumulatedFeeDao.getOne({ chainId, transactionType: Mode.CROSS_CHAIN, status: 'PENDING' });
+          log.info(`totalFeePaidFromDb: ${totalFeePaidFromDb}`);
 
-  //       if (totalFeePaidFromDb && totalFeePaidFromDb.accumulatedFeeData) {
-  //         let nativeFeeToBeUpdatedInDB = transactionFee.add(
-  //           totalFeePaidFromDb.accumulatedFeeData.feeAccumulatedInNative
-  //         );
-  //         log.info(`nativeFeeToBeUpdatedInDB: ${nativeFeeToBeUpdatedInDB}`);
-  //         let feeInUsdToBeUpdatedInDB = transactionFeePaidInUsd.add(
-  //           totalFeePaidFromDb.accumulatedFeeData.feeAccumulatedInUSD
-  //         );
-  //         log.info(`feeInUsdToBeUpdatedInDB: ${feeInUsdToBeUpdatedInDB}`);
+          if (totalFeePaidFromDb && totalFeePaidFromDb.accumulatedFeeData) {
+            let nativeFeeToBeUpdatedInDB = transactionFee.add(
+              totalFeePaidFromDb.accumulatedFeeData.feeAccumulatedInNative
+            );
+            log.info(`nativeFeeToBeUpdatedInDB: ${nativeFeeToBeUpdatedInDB}`);
+            let feeInUsdToBeUpdatedInDB: number = transactionFeePaidInUsd + totalFeePaidFromDb.accumulatedFeeData.feeAccumulatedInUSD;
+            log.info(`feeInUsdToBeUpdatedInDB: ${feeInUsdToBeUpdatedInDB}`);
 
-  //         // TODO: Sachin: Do not await db updating call, instead put this .update call in try catch block and in case of error send notification
-  //         let updateAccumulatedFeeRequest = await this.accumulatedFeeDao.update(
-  //           {
-  //             feeAccumulatedInNative: nativeFeeToBeUpdatedInDB,
-  //             feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
-  //             updatedOn: getTimeInMilliseconds(),
-  //           },
-  //           totalFeePaidFromDb.accumulatedFeeData._id
-  //         );
-  //         log.info(`updateAccumulatedFee in DB successfully`);
+            // TODO: Sachin: Do not await db updating call, instead put this .update call in try catch block and in case of error send notification
+            let updateAccumulatedFeeRequest = await this.accumulatedFeeDao.update(
+              {
+                feeAccumulatedInNative: nativeFeeToBeUpdatedInDB,
+                feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
+                updatedOn: getTimeInMilliseconds(),
+              },
+              totalFeePaidFromDb.accumulatedFeeData._id
+            );
+            log.info(`updateAccumulatedFee in DB successfully`);
 
-  //         await this.cacheService.set(getGasFeePaidKey(chainId), feeInUsdToBeUpdatedInDB.toString());
-  //         log.info(`Accumulated feeInUsd updated in cache`);
+            await this.cacheService.set(getGasFeePaidKey(chainId), feeInUsdToBeUpdatedInDB.toString());
+            log.info(`Accumulated feeInUsd updated in cache`);
 
-  //         if (feeInUsdToBeUpdatedInDB.gt(ethers.BigNumber.from(this.appConfig.feeSpendThreshold[chainId]))) {
-  //           let mfaUSDBalanceMap = await this.balanceManager.calculateMFABalanceInUSD();
-  //           log.info(`mfaUSDBalanceMap: ${stringify(mfaUSDBalanceMap)}`);
+            if (feeInUsdToBeUpdatedInDB > this.appConfig.feeSpendThreshold[chainId]) {
+              let mfaUSDBalanceMap = await this.balanceManager.calculateMFABalanceInUSD();
+              log.info(`mfaUSDBalanceMap: ${stringify(mfaUSDBalanceMap)}`);
 
-  //           let deltaMap = await this.deltaManager.calculateDelta(mfaUSDBalanceMap, chainId);
-  //           log.info(`deltaMap: ${stringify(deltaMap)}`);
+              let deltaMap = await this.deltaManager.calculateDelta(mfaUSDBalanceMap, chainId);
+              log.info(`deltaMap: ${stringify(deltaMap)}`);
 
-  //           let routes: Array<RouteParams> = await this.pathManager.findAllRoutes(deltaMap, chainId);
-  //           log.info(`Sorted Routes: ${stringify(routes)}`);
+              let routes: Array<RouteParams> = await this.pathManager.findAllRoutes(deltaMap, chainId);
+              log.info(`Sorted Routes: ${stringify(routes)}`);
 
-  //           let rebalanceMFA = await this.pathManager.rebalanceMFA(routes, deltaMap.positiveDeltaMap);
-  //         }
-  //       } else {
-  //         let addAccumulatedFeeToDBRequest = await this.accumulatedFeeDao.add({
-  //           startTime: getTimeInMilliseconds(),
-  //           feeAccumulatedInNative: transactionFee,
-  //           feeAccumulatedInUSD: transactionFeePaidInUsd,
-  //           tokenSymbol: nativeTokenInfo.symbol,
-  //           chainId,
-  //           status: FEE_CONVERSION_DB_STATUSES.PENDING,
-  //           createdOn: getTimeInMilliseconds(),
-  //           transactionType: Mode.CROSS_CHAIN
-  //         });
+              let rebalanceMFA = await this.pathManager.rebalanceMFA(routes, deltaMap.positiveDeltaMap);
+            }
+          } else {
+            let addAccumulatedFeeToDBRequest = await this.accumulatedFeeDao.add({
+              startTime: getTimeInMilliseconds(),
+              feeAccumulatedInNative: transactionFee,
+              feeAccumulatedInUSD: transactionFeePaidInUsd,
+              tokenSymbol: nativeTokenInfo.symbol,
+              chainId,
+              status: config.FEE_CONVERSION_DB_STATUSES.PENDING,
+              createdOn: getTimeInMilliseconds(),
+              transactionType: Mode.CROSS_CHAIN
+            });
 
-  //         if (addAccumulatedFeeToDBRequest.code !== RESPONSE_CODES.SUCCESS) {
-  //           log.error(`Error While adding AccumulatedFee in DB`);
-  //           throw new Error(`Error while adding to AccumulatedFee`);
-  //         }
-  //         await this.cacheService.set(getGasFeePaidKey(chainId), transactionFeePaidInUsd.toString());
-  //       }
-  //     } else {
-  //       log.error(`gasUsed property not found in transaction receipt for chainId ${chainId}`);
-  //       throw new Error(`gasUsed property not found in transaction receipt for chainId ${chainId}`);
-  //     }
-  //   } catch (error: any) {
-  //     log.error(error);
-  //     throw error;
-  //   }
-  //   finally {
-  //     if (redisLock) {
-  //       redisLock.unlock().catch((err: any) => {
-  //         log.error(`error whle unlocking reedis lock ${stringify(err)}`);
-  //         log.error(err);
-  //       });
-  //     }
-  //     log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
-  //   }
-  // }
+            if (addAccumulatedFeeToDBRequest.code !== config.RESPONSE_CODES.SUCCESS) {
+              log.error(`Error While adding AccumulatedFee in DB`);
+              throw new Error(`Error while adding to AccumulatedFee`);
+            }
+            await this.cacheService.set(getGasFeePaidKey(chainId), transactionFeePaidInUsd.toString());
+          }
+        } catch (err: any) {
+          log.info(err);
+        } finally {
+          // Release the lock.
+          await redisLock.release();
+          log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
+        }
+      } else {
+        log.error(`gasUsed property not found in transaction receipt for chainId ${chainId}`);
+        throw new Error(`gasUsed property not found in transaction receipt for chainId ${chainId}`);
+      }
+    } catch (error: any) {
+      log.error(error);
+      throw error;
+    }
+  }
 }
 
-export { FeeManager, RESPONSE_CODES, SIGNATURE_TYPES, EXIT_STATUS };
+export { FeeManager };

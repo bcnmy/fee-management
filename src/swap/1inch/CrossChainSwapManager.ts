@@ -1,6 +1,6 @@
 import { config } from '../../config';
 import { ISwapManager } from '../interfaces/ISwapManager';
-import { EVMRawTransactionType, PathParams, QuoteRequestParam, SwapCostParams, SwapParams, TokenData } from "../../types";
+import { AppConfig, EVMRawTransactionType, QuoteRequestParam, SwapCostParams, SwapParams } from "../../types";
 import { log } from '../../logs';
 import { stringify } from '../../utils/common-utils';
 import { ethers } from 'ethers';
@@ -17,15 +17,15 @@ export class CrossChainSwapManager implements ISwapManager {
   tokenPriceService: ITokenPrice;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
-  tokenList: Record<number, TokenData[]>;
+  appConfig: AppConfig;
   balanceThreshold: Record<number, Record<string, number>>;
   masterFundingAccount: IEVMAccount;
 
   constructor(swapParams: SwapParams) {
+    this.appConfig = swapParams.appConfig;
     this.tokenPriceService = swapParams.tokenPriceService;
     this.transactionServiceMap = swapParams.transactionServiceMap;
     this.balanceManager = swapParams.balanceManager;
-    this.tokenList = swapParams.tokenList;
     this.balanceThreshold = swapParams.balanceThreshold;
     this.masterFundingAccount = swapParams.masterFundingAccount;
   }
@@ -51,7 +51,6 @@ export class CrossChainSwapManager implements ISwapManager {
       }
 
       this.oneIncheTokenMap[chainId] = response.tokenList
-      // return response.tokenList;
     } catch (error: any) {
       throw new Error(error);
     }
@@ -88,8 +87,6 @@ export class CrossChainSwapManager implements ISwapManager {
     return config.oneInchApiBaseUrl + chainId + methodName + '?' + new URLSearchParams(queryParams).toString();
   }
 
-
-
   async getSwapCost(swapCostParams: SwapCostParams): Promise<ethers.BigNumber> {
     let fromTokenBalance = await this.balanceManager.getBalance(
       Number(swapCostParams.fromChainId),
@@ -98,7 +95,7 @@ export class CrossChainSwapManager implements ISwapManager {
     log.info(`getSwapCost() fromTokenBalance: ${fromTokenBalance.toString()}`);
 
     let swapToTokenAddress =
-      this.oneIncheTokenMap[swapCostParams.fromChainId][config.NATIVE_TOKEN_SYMBOL[swapCostParams.toChainId]];
+      this.oneIncheTokenMap[swapCostParams.fromChainId][this.appConfig.nativeTokenSymbol[swapCostParams.toChainId]];
     log.info(`getSwapCost() swapToTokenAddress: ${swapToTokenAddress}`);
 
     let quoteForSwap = await this.getQuote({
@@ -119,7 +116,7 @@ export class CrossChainSwapManager implements ISwapManager {
     log.info(`getSwapCost() swapCostInNativeCurrency: ${swapCostInNativeCurrency}`);
 
     let tokenPriceInUsd = await this.tokenPriceService.getTokenPrice(
-      config.NATIVE_TOKEN_SYMBOL[swapCostParams.fromChainId]
+      this.appConfig.nativeTokenSymbol[swapCostParams.fromChainId]
     );
     log.info(`getSwapCost() tokenPriceInUsd: ${tokenPriceInUsd}`);
 

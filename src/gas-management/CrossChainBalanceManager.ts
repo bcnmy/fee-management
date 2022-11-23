@@ -1,55 +1,23 @@
-// import "{ } from "./types";
-import { BigNumber, ethers } from 'ethers';
-import { config } from '../config';
-import { IEVMAccount } from '../relayer-node-interfaces/IEVMAccount';
+import { ethers } from 'ethers';
 import { ITokenPrice } from '../relayer-node-interfaces/ITokenPrice';
-import { ITransactionService } from '../relayer-node-interfaces/ITransactionService';
-import { EVMRawTransactionType, BalanceManagerParams, MasterFundingAccount, TokenData } from '../types';
+import { BalanceManagerParams, TokenData } from '../types';
 import { IBalanceManager } from './interfaces/IBalanceManager';
 import { log } from '../logs';
 import { stringify } from '../utils/common-utils';
-export class CrossChainBalanceManager implements IBalanceManager {
-  transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
-  masterFundingAccount: IEVMAccount;
+import { BalanceManager } from './BalanceManager';
+export class CrossChainBalanceManager extends BalanceManager implements IBalanceManager {
   tokenList: Record<number, TokenData[]>;
   tokenPriceService: ITokenPrice;
 
   constructor(balanceManagerParams: BalanceManagerParams) {
-    this.transactionServiceMap = balanceManagerParams.transactionServiceMap;
-    this.masterFundingAccount = balanceManagerParams.masterFundingAccount;
+    super(balanceManagerParams.masterFundingAccount, balanceManagerParams.transactionServiceMap);
     this.tokenList = balanceManagerParams.tokenList;
     this.tokenPriceService = balanceManagerParams.tokenPriceService;
   }
 
-  async getBalance(chainId: number, tokenAddress: string): Promise<BigNumber> {
-    let tokenBalance: BigNumber;
-    try {
-      log.info(`tokenAddress: ${tokenAddress}`);
-      if (tokenAddress === config.NATIVE_ADDRESS_RELAYER || tokenAddress === config.NATIVE_ADDRESS_ROUTER) {
-        tokenBalance = await this.transactionServiceMap[chainId].networkService.getBalance(
-          this.masterFundingAccount.getPublicKey()
-        );
-      } else {
-        let tokenBalanceFromChain = await this.transactionServiceMap[chainId].networkService.executeReadMethod(
-          config.erc20Abi,
-          tokenAddress,
-          'balanceOf',
-          [this.masterFundingAccount.getPublicKey()]
-        );
-
-        tokenBalance = ethers.BigNumber.from(tokenBalanceFromChain);
-      }
-
-      log.info(`tokenBalance: ${tokenBalance.toString()}`);
-    } catch (error: any) {
-      log.error(`error : ${stringify(error)}`);
-      throw new Error(`Error while fetching token ${tokenAddress} balance on chain ${chainId}: ${stringify(error)}`);
-    }
-
-    return tokenBalance;
-  }
-
-  //TODO: Sachin: Add method comments here, that it calculates total usd balance of all tokens on each supported chains.
+  /*** @description: to rebalance across multiple chains, first calculate 
+   * all available funds's USD value in Master Account on each chain
+   */
   async calculateMFABalanceInUSD(): Promise<Record<number, number>> {
     let usdBalanceOfMFA: Record<number, number> = {};
 

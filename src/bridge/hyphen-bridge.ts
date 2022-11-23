@@ -3,7 +3,7 @@ import { config } from '../config';
 import { IEVMAccount } from '../relayer-node-interfaces/IEVMAccount';
 import { ITokenPrice } from '../relayer-node-interfaces/ITokenPrice';
 import { ITransactionService } from '../relayer-node-interfaces/ITransactionService';
-import { BridgeCostParams, BridgeParams, EVMRawTransactionType, ExitParams, HyphenDepositParams } from '../types';
+import { AppConfig, BridgeCostParams, BridgeParams, EVMRawTransactionType, ExitParams, HyphenDepositParams } from '../types';
 import { IBridgeService } from './interfaces/IBridgeService';
 import { log } from '../logs';
 import { stringify } from '../utils/common-utils';
@@ -15,8 +15,10 @@ class HyphenBridge implements IBridgeService {
   masterFundingAccount: IEVMAccount;
   liquidityPoolAddress: string;
   hyphenSupportedTokenMap: Record<number, Record<string, Record<number, string>>> = {};
+  appConfig: AppConfig;
 
   constructor(bridgeParams: BridgeParams) {
+    this.appConfig = bridgeParams.appConfig;
     this.transactionService = bridgeParams.transactionService;
     this.tokenPriceService = bridgeParams.tokenPriceService;
     this.masterFundingAccount = bridgeParams.masterFundingAccount;
@@ -98,6 +100,7 @@ class HyphenBridge implements IBridgeService {
       let rawDepositTransaction;
       let value = ethers.utils.parseEther('0');
 
+      let depositGasSpend;
       if (depositParams.tokenAddress.toLowerCase() === config.NATIVE_ADDRESS_ROUTER) {
         log.info(`Get depositNative rawDepositTransaction`);
         rawDepositTransaction = await hyphenContract.populateTransaction.depositNative(
@@ -106,25 +109,22 @@ class HyphenBridge implements IBridgeService {
           depositParams.tag
         );
         value = ethers.utils.parseEther(depositParams.amount.toString());
+
+        depositGasSpend = await this.transactionService.networkService.ethersProvider.estimateGas({
+          from: this.masterFundingAccount.getPublicKey(),
+          to: this.appConfig.hyphenLiquidityPoolAddress[depositParams.fromChainId],
+          data: rawDepositTransaction.data,
+          value,
+        });
       } else {
-        log.info(`Get depositErc20 rawDepositTransaction`);
-        rawDepositTransaction = await hyphenContract.populateTransaction.depositErc20(
-          depositParams.toChainId,
-          depositParams.tokenAddress,
-          depositParams.receiver,
-          depositParams.amount,
-          depositParams.tag
+        depositGasSpend = await this.transactionService.networkService.estimateGas(
+          hyphenContract,
+          "depositErc20",
+          [depositParams.toChainId, depositParams.tokenAddress, depositParams.receiver, depositParams.amount, depositParams.tag],
+          this.masterFundingAccount.getPublicKey()
         );
       }
-      log.info(` rawDepositTransaction: ${rawDepositTransaction}`);
 
-      // TODO: Sachin: Use Network map here to call estimateGas method, and ethersProvide should be used inside Network.ts not here
-      const depositGasSpend = await this.transactionService.networkService.ethersProvider.estimateGas({
-        from: this.masterFundingAccount.getPublicKey(),
-        to: config.hyphenLiquidityPoolAddress[depositParams.fromChainId],
-        data: rawDepositTransaction.data,
-        value: value,
-      });
       log.info(`depositGasSpend: ${depositGasSpend}`);
 
       let networkGasPrice = await this.transactionService.networkService.getGasPrice();
@@ -134,7 +134,7 @@ class HyphenBridge implements IBridgeService {
       log.info(`depositCostInNativeCurrency: ${depositCostInNativeCurrency} `);
 
       let tokenPriceInUsd = await this.tokenPriceService.getTokenPrice(
-        config.NATIVE_TOKEN_SYMBOL[depositParams.fromChainId]
+        this.appConfig.nativeTokenSymbol[depositParams.fromChainId]
       );
       log.info(`tokenPriceInUsd: ${tokenPriceInUsd}`);
 
@@ -173,7 +173,7 @@ class HyphenBridge implements IBridgeService {
 
       if (brigeCostParams.toTokenAddress.toLowerCase() === config.NATIVE_ADDRESS_ROUTER) {
         exitTokenUsdPrice = await this.tokenPriceService.getTokenPrice(
-          config.NATIVE_TOKEN_SYMBOL[brigeCostParams.toChainId]
+          this.appConfig.nativeTokenSymbol[brigeCostParams.toChainId]
         );
       } else {
         exitTokenUsdPrice = await this.tokenPriceService.getTokenPriceByTokenAddress(
