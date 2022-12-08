@@ -1,6 +1,6 @@
 import { config } from '../../config';
 import { ISwapManager } from '../interfaces/ISwapManager';
-import { AppConfig, EVMRawTransactionType, GasPriceType, QuoteRequestParam, RawTransactionParam, SwapCostParams, SwapParams, TransactionType } from "../../types";
+import { AppConfig, EVMRawTransactionType, GasPriceType, QuoteRequestParam, RawTransactionParam, RouteParams, SwapCostParams, SwapParams, TransactionType } from "../../types";
 import { log } from '../../logs';
 import { generateTransactionId, stringify } from '../../utils/common-utils';
 import { BigNumber, ethers } from 'ethers';
@@ -8,12 +8,13 @@ import { ITokenPrice } from '../../relayer-node-interfaces/ITokenPrice';
 import { ITransactionService } from '../../relayer-node-interfaces/ITransactionService';
 import { IBalanceManager } from '../../gas-management/interfaces/IBalanceManager';
 import { IEVMAccount } from '../../relayer-node-interfaces/IEVMAccount';
+import { OneInchManager } from './OneInchManager';
 
 const fetch = require('node-fetch');
 
-export class SingleChainSwapManager implements ISwapManager {
+export class SingleChainSwapManager extends OneInchManager implements ISwapManager {
   // TODO add try catch
-  oneIncheTokenMap: Record<number, Record<string, string>> = {};
+  oneInchTokenMap: Record<number, Record<string, string>> = {};
   tokenPriceService: ITokenPrice;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
@@ -23,6 +24,7 @@ export class SingleChainSwapManager implements ISwapManager {
   label: string;
 
   constructor(swapParams: SwapParams) {
+    super(swapParams.masterFundingAccount, swapParams.transactionServiceMap)
     this.appConfig = swapParams.appConfig;
     this.tokenPriceService = swapParams.tokenPriceService;
     this.transactionServiceMap = swapParams.transactionServiceMap;
@@ -33,29 +35,7 @@ export class SingleChainSwapManager implements ISwapManager {
   }
 
   getSwapTokenList(chainId: number): Record<string, string> {
-    return this.oneIncheTokenMap[chainId];
-  }
-
-  async initialiseSwapTokenList(chainId: number): Promise<void> {
-    try {
-      log.info(`getSupportedTokenList() chainId: ${chainId} `);
-      const supportedTokenurl = this.apiRequestUrl('/tokens', chainId, null);
-
-      log.info(`supportedTokenurl: ${supportedTokenurl} `);
-      const response = await fetch(supportedTokenurl)
-        .then((res: any) => res.json())
-        .then((res: any) => res);
-
-      let tokenList: Record<string, string> = {};
-      for (let tokenAddress in response.tokens) {
-        let symbol = response.tokens[tokenAddress].symbol;
-        tokenList[symbol] = tokenAddress;
-      }
-      this.oneIncheTokenMap[chainId] = response.tokenList
-    }
-    catch (error: any) {
-      throw new Error(error);
-    }
+    return this.oneInchTokenMap[chainId];
   }
 
   async initiateSwap(chainId: number): Promise<unknown> {
@@ -101,7 +81,7 @@ export class SingleChainSwapManager implements ISwapManager {
                 }
               }
 
-              let swapRequest = await this.swapToken(chainId, tokenBalance, tokenAddress);
+              let swapRequest = await this.swapToNative(chainId, tokenBalance, tokenAddress);
               let swapReceipt = await this.transactionServiceMap[chainId].networkService.ethersProvider.waitForTransaction(swapRequest.hash);
 
               if (swapHashMap != undefined) {
@@ -128,7 +108,7 @@ export class SingleChainSwapManager implements ISwapManager {
     return;
   }
 
-  async swapToken(chainId: number, amount: any, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {
+  async swapToNative(chainId: number, amount: any, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {
     let mfaPrivateKey = this.masterFundingAccount.getPublicKey();
     const swapParams = {
       fromTokenAddress: tokenAddress,
@@ -146,7 +126,7 @@ export class SingleChainSwapManager implements ISwapManager {
     rawTransaction.gasLimit = rawTransaction.gas;
 
     let transactionId = await generateTransactionId(JSON.stringify(rawTransaction));
-    log.info(`swapToken() ~ ~ rawTransaction: ${rawTransaction} , transactionId : ${transactionId}`);
+    log.info(`swapToNative() ~ ~ rawTransaction: ${rawTransaction} , transactionId : ${transactionId}`);
 
     let swapResponse = await this.transactionServiceMap[chainId].sendTransaction(
       {
@@ -166,61 +146,11 @@ export class SingleChainSwapManager implements ISwapManager {
     throw new Error(`Failed to swap token ${tokenAddress} on chainId: ${chainId} for amount ${amount}`);
   }
 
-  async approveSpender(chainId: number, amount: string, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {
-
-    let mfaPrivateKey = this.masterFundingAccount.getPublicKey()
-    const url = this.apiRequestUrl('/approve/transaction', chainId, { tokenAddress, amount });
-
-    const transaction = await fetch(url).then((res: any) => res.json());
-
-    const gasLimit = await this.transactionServiceMap[chainId].networkService.ethersProvider.estimateGas({
-      ...transaction,
-      from: this.masterFundingAccount.getPublicKey()
-    });
-
-    const rawTransaction: RawTransactionParam = {
-      ...transaction,
-      value: BigNumber.from(transaction.value)._hex,
-      gasLimit: gasLimit,
-      from: mfaPrivateKey,
-      chainId: chainId,
-    }
-
-    let transactionId = await generateTransactionId(JSON.stringify(rawTransaction));
-    log.info(`transactionId : ${transactionId}`);
-
-    let approveResponse = await this.transactionServiceMap[chainId].sendTransaction(
-      {
-        ...rawTransaction,
-        transactionId,
-        walletAddress: mfaPrivateKey,
-        speed: GasPriceType.FAST
-      },
-      this.masterFundingAccount,
-      TransactionType.SCW,
-      this.label
-    );
-
-    if (approveResponse.code === 200 && approveResponse.transactionExecutionResponse) {
-      return approveResponse.transactionExecutionResponse
-    }
-    throw new Error(`Failed to approve token ${tokenAddress} on chainId: ${chainId} for amount ${amount}`);
+  async approveSpender(chainId: number, amount: BigNumber, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {
+    return super.approveSpender(chainId, amount, tokenAddress, this.label);
   }
 
-  async checkDexAllowane(chainId: number, tokenAddress: string): Promise<BigNumber> {
-    return fetch(this.apiRequestUrl('/approve/allowance', chainId, { tokenAddress, walletAddress: this.masterFundingAccount.getPublicKey() }))
-      .then((res: any) => res.json())
-      .then((res: any) => res.allowance);
-  }
-
-  apiRequestUrl(methodName: string, chainId: number, queryParams: any): string {
-    return config.oneInchApiBaseUrl + chainId + methodName + '?' + new URLSearchParams(queryParams).toString();
-  }
-
-  getSwapCost(swapCostParams: SwapCostParams): Promise<ethers.BigNumber> {
-    throw new Error('Method not implemented.');
-  }
-  getQuote(quoteRequestParam: QuoteRequestParam) {
+  swapToken(route: RouteParams): Promise<ethers.providers.TransactionResponse> {
     throw new Error('Method not implemented.');
   }
 }

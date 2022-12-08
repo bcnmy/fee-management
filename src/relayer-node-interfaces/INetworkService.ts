@@ -1,17 +1,6 @@
 import { BigNumber, ethers } from 'ethers';
 import EventEmitter from 'events';
-import { Type0TransactionGasPriceType, Type2TransactionGasPriceType } from '../types';
-
-export enum RpcMethod {
-  getGasPrice,
-  getEIP1159GasPrice,
-  getBalance,
-  estimateGas,
-  getTransactionReceipt,
-  getTransactionCount,
-  sendTransaction,
-  waitForTransaction,
-}
+import { RpcMethod, Type0TransactionGasPriceType, Type2TransactionGasPriceType } from '../types';
 
 export interface INetworkService<AccountType, RawTransactionType> {
   chainId: number;
@@ -26,15 +15,12 @@ export interface INetworkService<AccountType, RawTransactionType> {
   // REVIEW
   // remove any
   useProvider(tag: RpcMethod, params?: any): Promise<any>
-  sendRpcCall(method: string, params: Array<object>): Promise<object>
+  sendRpcCall(method: string, params: Array<object>): Promise<any>
   getGasPrice(): Promise<Type0TransactionGasPriceType>;
   getEIP1559GasPrice(): Promise<Type2TransactionGasPriceType>;
   getBalance(address: string): Promise<BigNumber>;
-  getTokenBalance(userAddress: string, tokenAddress: string): Promise<BigNumber>;
   getContract(abi: string, contractAddress: string): ethers.Contract;
   getNonce(address: string, pendingNonce?: boolean): Promise<number>
-  // TODO
-  // Find a better return type than object
   executeReadMethod(
     abi: string,
     contractAddress: string,

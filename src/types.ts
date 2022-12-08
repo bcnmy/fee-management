@@ -230,7 +230,15 @@ export enum GasPriceType {
   FAST = 'fast',
 }
 
-export type TransactionMessageType = ethers.providers.TransactionResponse;
+export type TransactionQueueMessageType = {
+  transactionId: string,
+  event: SocketEventType,
+  relayerManagerName: string,
+  transactionHash?: string,
+  previousTransactionHash?: string,
+  receipt?: ethers.providers.TransactionResponse,
+  error?: string,
+};
 
 export type TransactionListenerNotifyReturnType = {
   isTransactionRelayed: boolean;
@@ -244,10 +252,11 @@ export type NotifyTransactionListenerParamsType = {
   userAddress?: string;
 };
 
-export type ErrorTransactionResponseType = {
+export type ErrorTransactionResponseType = TransactionListenerNotifyReturnType & {
   state: 'failed';
   code: number;
   error: string;
+  transactionId: string;
 };
 
 export type SuccessTransactionResponseType = TransactionListenerNotifyReturnType & {
@@ -295,10 +304,12 @@ export type RetryTransactionQueueData = {
   transactionHash?: string,
   transactionId: string,
   rawTransaction: EVMRawTransactionType,
-  userAddress: string,
+  walletAddress: string,
+  metaData: any,
   relayerManagerName: string,
   event: SocketEventType
 };
+
 export type RetryTransactionDataType = RetryTransactionQueueData;
 
 export type RawTransactionParam = {
@@ -311,4 +322,47 @@ export type RawTransactionParam = {
   nonce: string;
   chainId: number;
   gas: string
+}
+
+export type ExecuteTransactionParamsType = {
+  rawTransaction: EVMRawTransactionType,
+  account: IEVMAccount
+};
+
+export type ExecuteTransactionResponseType = {
+  success: true;
+  transactionResponse: ethers.providers.TransactionResponse,
+} | {
+  success: false;
+  error: string;
+};
+
+export type RawTransactionType = {
+  from: string;
+  gasPrice?: string;
+  maxPriorityFeePerGas?: string;
+  maxFeePerGas?: string;
+  gasLimit: {
+    _hex: string;
+    _isBigNumber: boolean;
+  };
+  to: string;
+  value: {
+    _hex: string;
+    _isBigNumber: boolean;
+  };
+  data: string;
+  chainId: number;
+  nonce: number;
+};
+
+export enum RpcMethod {
+  getGasPrice,
+  getEIP1159GasPrice,
+  getBalance,
+  estimateGas,
+  getTransactionReceipt,
+  getTransactionCount,
+  sendTransaction,
+  waitForTransaction,
 }

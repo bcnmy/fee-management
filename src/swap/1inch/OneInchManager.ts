@@ -6,7 +6,7 @@ import { ITransactionService } from "../../relayer-node-interfaces/ITransactionS
 import { EVMRawTransactionType, GasPriceType, QuoteRequestParam, RawTransactionParam, SwapCostParams, TransactionType } from "../../types";
 import { generateTransactionId } from "../../utils/common-utils";
 
-export class SwapManager {
+export class OneInchManager {
 
     oneInchTokenMap: Record<number, Record<string, string>> = {};
     masterFundingAccount: IEVMAccount;

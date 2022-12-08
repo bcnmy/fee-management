@@ -11,6 +11,9 @@ export class Mongo implements IDBService {
     this.client = null;
     this.dbUrl = dbUrl;
   }
+  isConnected(): boolean {
+    throw new Error('Method not implemented.');
+  }
 
   public static getInstance(dbUrl: string): Mongo {
     if (!Mongo.instance) {

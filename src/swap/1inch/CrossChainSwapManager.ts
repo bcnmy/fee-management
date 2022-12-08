@@ -1,59 +1,40 @@
-import { config } from '../../config';
 import { ISwapManager } from '../interfaces/ISwapManager';
-import { AppConfig, EVMRawTransactionType, QuoteRequestParam, SwapCostParams, SwapParams } from "../../types";
+import { AppConfig, EVMRawTransactionType, QuoteRequestParam, RouteParams, SwapCostParams, SwapParams } from "../../types";
 import { log } from '../../logs';
 import { stringify } from '../../utils/common-utils';
-import { ethers } from 'ethers';
+import { BigNumber, ethers } from 'ethers';
 import { ITokenPrice } from '../../relayer-node-interfaces/ITokenPrice';
 import { ITransactionService } from '../../relayer-node-interfaces/ITransactionService';
 import { IBalanceManager } from '../../gas-management/interfaces/IBalanceManager';
 import { IEVMAccount } from '../../relayer-node-interfaces/IEVMAccount';
+import { OneInchManager } from './OneInchManager';
 
 const fetch = require('node-fetch');
 
-export class CrossChainSwapManager implements ISwapManager {
+export class CrossChainSwapManager extends OneInchManager implements ISwapManager {
   // TODO add try catch
-  oneIncheTokenMap: Record<number, Record<string, string>> = {};
+  oneInchTokenMap: Record<number, Record<string, string>> = {};
   tokenPriceService: ITokenPrice;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
   appConfig: AppConfig;
   balanceThreshold: Record<number, Record<string, number>>;
   masterFundingAccount: IEVMAccount;
+  label: string;
 
   constructor(swapParams: SwapParams) {
+    super(swapParams.masterFundingAccount, swapParams.transactionServiceMap);
     this.appConfig = swapParams.appConfig;
     this.tokenPriceService = swapParams.tokenPriceService;
     this.transactionServiceMap = swapParams.transactionServiceMap;
     this.balanceManager = swapParams.balanceManager;
     this.balanceThreshold = swapParams.balanceThreshold;
     this.masterFundingAccount = swapParams.masterFundingAccount;
+    this.label = swapParams.label ? swapParams.label : "CrossChainAccountsManager"
   }
 
   getSwapTokenList(chainId: number): Record<string, string> {
-    return this.oneIncheTokenMap[chainId];
-  }
-
-  async initialiseSwapTokenList(chainId: number): Promise<void> {
-    try {
-      log.info(`getSupportedTokenList() chainId: ${chainId}`);
-      const supportedTokenurl = this.apiRequestUrl('/tokens', chainId, null);
-
-      log.info(`supportedTokenurl: ${supportedTokenurl}`);
-      const response = await fetch(supportedTokenurl)
-        .then((res: any) => res.json())
-        .then((res: any) => res);
-
-      let tokenList: Record<string, string> = {};
-      for (let tokenAddress in response.tokens) {
-        let symbol = response.tokens[tokenAddress].symbol;
-        tokenList[symbol] = tokenAddress;
-      }
-
-      this.oneIncheTokenMap[chainId] = response.tokenList
-    } catch (error: any) {
-      throw new Error(error);
-    }
+    return this.oneInchTokenMap[chainId];
   }
 
   initiateSwap(chainId: number): Promise<unknown> {
@@ -83,43 +64,50 @@ export class CrossChainSwapManager implements ISwapManager {
     }
   }
 
-  apiRequestUrl(methodName: string, chainId: number, queryParams: any): string {
-    return config.oneInchApiBaseUrl + chainId + methodName + '?' + new URLSearchParams(queryParams).toString();
+  async getSwapCost(swapCostParams: SwapCostParams): Promise<ethers.BigNumber> {
+    try {
+      let fromTokenBalance = await this.balanceManager.getBalance(
+        Number(swapCostParams.fromChainId),
+        swapCostParams.swapFromTokenAddress
+      );
+      log.info(`getSwapCost() fromTokenBalance: ${fromTokenBalance.toString()}`);
+
+      let quoteForSwap = await this.getQuote({
+        chainId: swapCostParams.fromChainId,
+        fromTokenAddress: swapCostParams.swapFromTokenAddress,
+        toTokenAddress: swapCostParams.swapToTokenAddress,
+        amount: fromTokenBalance
+      });
+      log.info(`getSwapCost() chainId: ${swapCostParams.fromChainId}, 
+      fromTokenAddress: ${swapCostParams.swapFromTokenAddress}, 
+      toTokenAddress: ${swapCostParams.swapToTokenAddress}, amount: ${fromTokenBalance}`);
+
+      if (!quoteForSwap && !quoteForSwap.estimatedGas) {
+        throw new Error(`Error While estimating swap gas`);
+      }
+      let networkGasPrice = await this.transactionServiceMap[swapCostParams.fromChainId].networkService.getGasPrice();
+      log.info(`getSwapCost() networkGasPrice: ${stringify(networkGasPrice)}`);
+
+      let swapCostInNativeCurrency = quoteForSwap.estimatedGas.mul(networkGasPrice.gasPrice);
+      log.info(`getSwapCost() swapCostInNativeCurrency: ${swapCostInNativeCurrency}`);
+
+      let tokenPriceInUsd = await this.tokenPriceService.getTokenPrice(
+        this.appConfig.nativeTokenSymbol[swapCostParams.fromChainId]
+      );
+      log.info(`getSwapCost() tokenPriceInUsd: ${tokenPriceInUsd}`);
+
+      return swapCostInNativeCurrency.mul(tokenPriceInUsd);
+    } catch (error: any) {
+      log.error(error);
+      throw error;
+    }
   }
 
-  async getSwapCost(swapCostParams: SwapCostParams): Promise<ethers.BigNumber> {
-    let fromTokenBalance = await this.balanceManager.getBalance(
-      Number(swapCostParams.fromChainId),
-      swapCostParams.swapFromTokenAddress
-    );
-    log.info(`getSwapCost() fromTokenBalance: ${fromTokenBalance.toString()}`);
+  async approveSpender(chainId: number, amount: BigNumber, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {
+    return super.approveSpender(chainId, amount, tokenAddress, this.label);
+  }
 
-    let swapToTokenAddress =
-      this.oneIncheTokenMap[swapCostParams.fromChainId][this.appConfig.nativeTokenSymbol[swapCostParams.toChainId]];
-    log.info(`getSwapCost() swapToTokenAddress: ${swapToTokenAddress}`);
-
-    let quoteForSwap = await this.getQuote({
-      chainId: swapCostParams.fromChainId,
-      fromTokenAddress: swapCostParams.swapFromTokenAddress,
-      toTokenAddress: swapToTokenAddress,
-      amount: fromTokenBalance
-    });
-    log.info(`getSwapCost() chainId: ${swapCostParams.fromChainId}, fromTokenAddress: ${swapCostParams.swapFromTokenAddress}, toTokenAddress: ${swapToTokenAddress}, amount: ${fromTokenBalance}`);
-
-    if (!quoteForSwap && !quoteForSwap.estimatedGas) {
-      throw new Error(`Error While estimating swap gas`);
-    }
-    let networkGasPrice = await this.transactionServiceMap[swapCostParams.fromChainId].networkService.getGasPrice();
-    log.info(`getSwapCost() networkGasPrice: ${stringify(networkGasPrice)}`);
-
-    let swapCostInNativeCurrency = quoteForSwap.estimatedGas.mul(networkGasPrice.gasPrice);
-    log.info(`getSwapCost() swapCostInNativeCurrency: ${swapCostInNativeCurrency}`);
-
-    let tokenPriceInUsd = await this.tokenPriceService.getTokenPrice(
-      this.appConfig.nativeTokenSymbol[swapCostParams.fromChainId]
-    );
-    log.info(`getSwapCost() tokenPriceInUsd: ${tokenPriceInUsd}`);
-
-    return swapCostInNativeCurrency.mul(tokenPriceInUsd);
+  swapToken(route: RouteParams): Promise<ethers.providers.TransactionResponse> {
+    throw new Error('Method not implemented.');
   }
 }

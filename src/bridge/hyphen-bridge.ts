@@ -192,6 +192,10 @@ class HyphenBridge implements IBridgeService {
       throw new Error(`Error while calculating Bridge cost for params ${brigeCostParams}`);
     }
   }
+
+  checkBridgeAllowane(fromChainId: number, swapToTokenAddress: string): Promise<ethers.BigNumber> {
+    throw new Error('Method not implemented.');
+  }
 }
 
 export { HyphenBridge };
