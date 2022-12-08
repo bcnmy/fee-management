@@ -1,6 +1,6 @@
 import { ICacheService } from './relayer-node-interfaces/ICacheService';
 import { ITokenPrice } from './relayer-node-interfaces/ITokenPrice';
-import { BigNumber, ethers } from 'ethers';
+import { BigNumber, BigNumberish, ethers } from 'ethers';
 import { ITransactionService } from './relayer-node-interfaces/ITransactionService';
 import { IEVMAccount } from './relayer-node-interfaces/IEVMAccount';
 import { ISwapManager } from './swap/interfaces/ISwapManager';
@@ -246,11 +246,51 @@ export type TransactionListenerNotifyReturnType = {
 };
 
 export type NotifyTransactionListenerParamsType = {
-  transactionExecutionResponse: ethers.providers.TransactionResponse;
-  transactionId: string;
-  relayerAddress: string;
-  userAddress?: string;
+  transactionExecutionResponse?: ethers.providers.TransactionResponse,
+  transactionId: string,
+  transactionReceipt?: ethers.providers.TransactionReceipt,
+  relayerAddress: string,
+  transactionType: TransactionType,
+  previousTransactionHash?: string,
+  rawTransaction?: EVMRawTransactionType,
+  walletAddress: string,
+  metaData?: any,
+  relayerManagerName: string,
+  ccmpMessage?: CCMPMessageType
+  error?: string,
 };
+
+export type CCMPMessageType = {
+  sender: string;
+  sourceGateway: string;
+  sourceAdaptor: string;
+  sourceChainId: BigNumberish;
+  destinationGateway: string;
+  destinationChainId: BigNumberish;
+  nonce: BigNumberish;
+  routerAdaptor: CCMPRouterName;
+  gasFeePaymentArgs: GasFeePaymentArgsStruct;
+  payload: CCMPMessagePayloadType[];
+  hash: string;
+};
+
+export type GasFeePaymentArgsStruct = {
+  feeTokenAddress: string;
+  feeAmount: BigNumberish;
+  relayer: string;
+};
+
+
+export type CCMPMessagePayloadType = {
+  to: string;
+  _calldata: string;
+};
+
+export enum CCMPRouterName {
+  WORMHOLE = 'wormhole',
+  AXELAR = 'axelar',
+  HYPERLANE = 'hyperlane',
+}
 
 export type ErrorTransactionResponseType = TransactionListenerNotifyReturnType & {
   state: 'failed';
