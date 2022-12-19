@@ -236,7 +236,7 @@ export type TransactionQueueMessageType = {
   relayerManagerName: string,
   transactionHash?: string,
   previousTransactionHash?: string,
-  receipt?: ethers.providers.TransactionResponse,
+  receipt?: ethers.providers.TransactionReceipt,
   error?: string,
 };
 
@@ -302,6 +302,7 @@ export type ErrorTransactionResponseType = TransactionListenerNotifyReturnType &
 export type SuccessTransactionResponseType = TransactionListenerNotifyReturnType & {
   state: 'success';
   code: number;
+  transactionId: string
 };
 
 export type TransactionDataType = {
@@ -312,6 +313,7 @@ export type TransactionDataType = {
   speed?: GasPriceType;
   walletAddress: string,
   transactionId: string;
+  ccmpMessage?: CCMPMessageType;
   metaData?: {
     dappAPIKey: string
   }

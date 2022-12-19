@@ -1,13 +1,13 @@
 {
-  "name": "@biconomy/fee-management",
-  "version": "1.0.0",
+  "name": "fee-management",
+  "version": "0.0.2",
   "description": "Fee management module to manage and monitor Native token in Master account accross chains",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "rm -rf dist/ && tsc",
     "prepublish": "rm -rf dist/ && tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "repository": "git+https://github.com/bcnmy/fee-management.git",
   "keywords": [
@@ -37,14 +37,14 @@
     "crypto-js": "^4.1.1",
     "eslint": "^8.26.0",
     "ethers": "^5.0.24",
-    "mongo-mock": "^3.8.1",
+    "mongodb": "^4.12.1",
     "mongoose": "^5.5.8",
     "node-fetch": "2.6.7",
     "promise": "^8.0.3",
     "redis": "^3.0.2",
     "redlock": "^5.0.0-beta.2",
     "tslint": "^6.1.3",
-    "typescript": "^4.1.3"
+    "typescript": "^4.9.4"
   },
   "devDependencies": {
     "@types/amqplib": "^0.8.2",

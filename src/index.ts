@@ -11,7 +11,7 @@ import { ITokenPrice } from './relayer-node-interfaces/ITokenPrice';
 import { log } from './logs';
 import { getGasFeePaidKey } from './utils/cache-utils';
 import { getTimeInMilliseconds, stringify } from './utils/common-utils';
-import { getNativeTokenInfo } from './utils/token-utils';
+import * as tokenUtils from './utils/token-utils';
 import { ethers } from 'ethers';
 import { AccumulatedFeeDAO } from './mongo/dao';
 import { DeltaManager } from './gas-management/DeltaManager';
@@ -212,7 +212,7 @@ class FeeManager {
     let mfaPublicKey: string = this.masterFundingAccount.getPublicKey();
     try {
       if (transactionReceipt.gasUsed) {
-        let nativeTokenInfo = getNativeTokenInfo(chainId, this.appConfig.tokenList);
+        let nativeTokenInfo = tokenUtils.getNativeTokenInfo(chainId, this.appConfig.tokenList);
         if (!nativeTokenInfo) {
           log.error(`native Token Info not Available`);
           throw new Error(`Native Token Info not Available for chain id ${chainId}`);
@@ -271,6 +271,17 @@ class FeeManager {
             if (feeInUsdToBeUpdatedInDB > this.appConfig.feeSpendThreshold[chainId]) {
               let swapResponse = await this.swapManager.initiateSwap(chainId);
               log.info(`swapResponse: ${stringify(swapResponse)}`);
+
+              let updateAccumulatedFeeRequest = await this.accumulatedFeeDao.update(
+                {
+                  feeAccumulatedInNative: nativeFeeToBeUpdatedInDB,
+                  feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
+                  updatedOn: getTimeInMilliseconds(),
+                  status: config.FEE_CONVERSION_DB_STATUSES.COMPLETE,
+                },
+                totalFeePaidFromDb.accumulatedFeeData._id
+              );
+              log.info(`updateAccumulatedFee in DB successfully`);
             }
           } else {
             let addAccumulatedFeeToDBRequest = await this.accumulatedFeeDao.add({
@@ -325,7 +336,7 @@ class FeeManager {
       if (transactionReceipt.gasUsed) {
         // TODO: Sachin: Rename the method to getNativeTokenInfo - done
         // TODO: Sachin: Rename variable to nativeTokenInfo - done
-        let nativeTokenInfo = getNativeTokenInfo(chainId, this.appConfig.tokenList);
+        let nativeTokenInfo = tokenUtils.getNativeTokenInfo(chainId, this.appConfig.tokenList);
         if (!nativeTokenInfo) {
           log.error(`native Token Info not Available`);
           throw new Error(`Native Token Info not Available for chain id ${chainId}`);
