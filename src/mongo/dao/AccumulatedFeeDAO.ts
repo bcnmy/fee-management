@@ -9,7 +9,7 @@ export class AccumulatedFeeDAO {
     try {
       let result: any;
 
-      if (searchParams) {
+      if (JSON.stringify(searchParams) !== '{}') {
         const getUnique: JSON = await AccumulatedFee.findOne(searchParams);
 
         if (getUnique) {
@@ -23,12 +23,10 @@ export class AccumulatedFeeDAO {
       } else {
         result = formatMessage(config.RESPONSE_CODES.BAD_REQUEST, `searchParams is either not valid or not in correct format`);
         log.error(`AccumulatedFee.findOne response: ${stringify(result)}`);
-        throw new Error(`AccumulatedFee.findOne response: ${stringify(result)}`);
       }
-
       return result;
     } catch (error: any) {
-      log.error(stringify(error.message ? error.message : error));
+      log.error(error);
       throw new Error(`Error while getting accumulatedFee data from  db`);
     }
   }
@@ -44,10 +42,8 @@ export class AccumulatedFeeDAO {
       response.dbObject = dbObject;
       log.info(`Fields Added Successfully into AccumulatedFee`);
     } catch (error: any) {
-      log.error(stringify(error.message ? error.message : error));
-      throw new Error(
-        `Error while adding to AccumulatedFee, Fields to be added : ${stringify({ ...fieldsToAdd })}`
-      );
+      log.error(error);
+      throw error;
     }
     return response;
   }
@@ -71,14 +67,14 @@ export class AccumulatedFeeDAO {
           config.RESPONSE_CODES.EXPECTATION_FAILED,
           `accumulatedFeeId is not defined or fieldsToUpdate is not in correct format`
         );
-        throw new Error(`AccumulatedFee.findByIdAndUpdate response: ${stringify(result)}`);
+        log.error(`AccumulatedFee.findByIdAndUpdate response: ${stringify(result)}`);
       }
 
       log.info(`AccumulatedFee.update response: ${stringify(result)}`);
 
       return result;
     } catch (error: any) {
-      log.error(stringify(error.message ? error.message : error));
+      log.error(error);
       throw new Error(`Error while updating data in AccumulatedFee db`);
     }
   }

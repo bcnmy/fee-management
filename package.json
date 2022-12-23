@@ -7,7 +7,7 @@
   "scripts": {
     "build": "rm -rf dist/ && tsc",
     "prepublish": "rm -rf dist/ && tsc",
-    "test": "jest"
+    "test": "jest --detectOpenHandles"
   },
   "repository": "git+https://github.com/bcnmy/fee-management.git",
   "keywords": [
@@ -51,9 +51,13 @@
     "@types/jest": "^27.4.1",
     "@types/mongoose": "^5.7.36",
     "@types/node": "^14.14.25",
+    "@types/node-fetch": "^2.6.2",
     "chai": "^4.3.6",
     "dotenv": "^16.0.0",
+    "ioredis": "^5.2.4",
     "jest": "^27.5.1",
+    "redis-memory-server": "^0.6.0",
+    "redis-mock": "^0.56.3",
     "ts-jest": "^27.1.4",
     "ts-node": "^10.7.0"
   }
