@@ -6,6 +6,8 @@ import { ITransactionService } from "../../relayer-node-interfaces/ITransactionS
 import { EVMRawTransactionType, GasPriceType, QuoteRequestParam, RawTransactionParam, SwapCostParams, TransactionType } from "../../types";
 import { generateTransactionId } from "../../utils/common-utils";
 
+const fetch = require('node-fetch');
+
 export class OneInchManager {
 
     oneInchTokenMap: Record<number, Record<string, string>> = {};
@@ -33,7 +35,7 @@ export class OneInchManager {
                 let symbol = response.tokens[tokenAddress].symbol;
                 tokenList[symbol] = tokenAddress;
             }
-            this.oneInchTokenMap[chainId] = response.tokenList
+            this.oneInchTokenMap[chainId] = tokenList
         }
         catch (error: any) {
             throw new Error(error);

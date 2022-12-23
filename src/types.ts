@@ -408,3 +408,14 @@ export enum RpcMethod {
   sendTransaction,
   waitForTransaction,
 }
+
+export type SCWTransactionMessageType = {
+  type: string;
+  to: string;
+  data: string;
+  gasLimit: string;
+  chainId: number;
+  value: string;
+  transactionId: string;
+  walletAddress: string;
+};

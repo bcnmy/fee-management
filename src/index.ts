@@ -189,7 +189,8 @@ class FeeManager {
         await this.swapManager.initialiseSwapTokenList(Number(chainId));
       }
 
-    } catch (error) {
+    } catch (error: any) {
+      log.error(error);
       log.info(`Error while initiating token list`);
       throw new Error(`Error while initiating token list`);
     }
@@ -301,8 +302,9 @@ class FeeManager {
             }
             await this.cacheService.set(getGasFeePaidKey(chainId), transactionFeePaidInUsd.toString());
           }
-        } catch (err: any) {
-          log.info(err);
+        } catch (error: any) {
+          log.error(error);
+          throw error;
         }
         finally {
           // Release the lock.
