@@ -5,7 +5,7 @@ import { IEVMAccount } from "../../relayer-node-interfaces/IEVMAccount";
 import { INetworkService } from "../../relayer-node-interfaces/INetworkService";
 import { EVMRawTransactionType, RawTransactionType, RpcMethod, Type0TransactionGasPriceType, Type2TransactionGasPriceType } from "../../types";
 
-export class MockNetworkService implements INetworkService<IEVMAccount, EVMRawTransactionType>{
+export class MockNetworkServiceFail implements INetworkService<IEVMAccount, EVMRawTransactionType>{
     chainId: number = 5;
     rpcUrl: string = "";
     fallbackRpcUrls: string[] = [];
@@ -29,16 +29,13 @@ export class MockNetworkService implements INetworkService<IEVMAccount, EVMRawTr
         throw new Error("Method not implemented.");
     }
     getGasPrice(): Promise<Type0TransactionGasPriceType> {
-        let gasPrice: Type0TransactionGasPriceType = {
-            gasPrice: "1"
-        }
-        return Promise.resolve(gasPrice);
+        throw new Error("Method not implemented.");
     }
     getEIP1559GasPrice(): Promise<Type2TransactionGasPriceType> {
         throw new Error("Method not implemented.");
     }
     getBalance(address: string): Promise<BigNumber> {
-        return Promise.resolve(BigNumber.from(1));
+        throw new Error("Error while fetching MFA 0xF86B30C63E068dBB6bdDEa6fe76bf92F194Dc53c balance for token 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee on chain 5: {}");
     }
     getContract(abi: string, contractAddress: string): Contract {
         throw new Error("Method not implemented.");
@@ -47,7 +44,7 @@ export class MockNetworkService implements INetworkService<IEVMAccount, EVMRawTr
         throw new Error("Method not implemented.");
     }
     executeReadMethod(abi: string, contractAddress: string, methodName: string, params: object): Promise<object> {
-        return Promise.resolve(new Object(BigNumber.from(1)))
+        throw new Error("Error while fetching MFA 0xF86B30C63E068dBB6bdDEa6fe76bf92F194Dc53c balance for token 0x64ef393b6846114bad71e2cb2ccc3e10736b5716 on chain 5: {}");
     }
     estimateGas(contract: Contract, methodName: string, params: object, from: string): Promise<BigNumber> {
         throw new Error("Method not implemented.");
