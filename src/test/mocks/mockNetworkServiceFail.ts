@@ -35,7 +35,7 @@ export class MockNetworkServiceFail implements INetworkService<IEVMAccount, EVMR
         throw new Error("Method not implemented.");
     }
     getBalance(address: string): Promise<BigNumber> {
-        throw new Error("Error while fetching MFA 0xF86B30C63E068dBB6bdDEa6fe76bf92F194Dc53c balance for token 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee on chain 5: {}");
+        throw new Error("Error While Fetching the Balance of NATIVE_TOKEN");
     }
     getContract(abi: string, contractAddress: string): Contract {
         throw new Error("Method not implemented.");
@@ -44,7 +44,7 @@ export class MockNetworkServiceFail implements INetworkService<IEVMAccount, EVMR
         throw new Error("Method not implemented.");
     }
     executeReadMethod(abi: string, contractAddress: string, methodName: string, params: object): Promise<object> {
-        throw new Error("Error while fetching MFA 0xF86B30C63E068dBB6bdDEa6fe76bf92F194Dc53c balance for token 0x64ef393b6846114bad71e2cb2ccc3e10736b5716 on chain 5: {}");
+        throw new Error("Error While Fetching the Balance of Erc20 token");
     }
     estimateGas(contract: Contract, methodName: string, params: object, from: string): Promise<BigNumber> {
         throw new Error("Method not implemented.");

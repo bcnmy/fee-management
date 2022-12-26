@@ -38,7 +38,8 @@ export class OneInchManager {
             this.oneInchTokenMap[chainId] = tokenList
         }
         catch (error: any) {
-            throw new Error(error);
+            log.error(error);
+            throw error;
         }
     }
 

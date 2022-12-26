@@ -10,7 +10,7 @@ import { MockTransactionService } from "./mocks/mockTransactionService";
 import { MockTransactionServiceFail } from "./mocks/mockTransactionServiceFail";
 
 
-describe('Transaction Service: Sending Transaction on chainId: 5', () => {
+describe('SingleChainBalanceManager Class', () => {
 
     let singleChainBalanceManager: SingleChainBalanceManager;
     let singleChainBalanceManagerFail: SingleChainBalanceManager;

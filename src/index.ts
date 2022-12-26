@@ -83,7 +83,6 @@ class FeeManager {
             masterFundingAccount: this.masterFundingAccount,
             balanceManager: this.balanceManager,
             appConfig: this.appConfig,
-            balanceThreshold: this.appConfig.balanceThreshold,
             label: feeManagerParams.label
           });
         } else if (feeManagerParams.mode === Mode.CROSS_CHAIN) {
@@ -100,7 +99,6 @@ class FeeManager {
             transactionServiceMap: this.transactionServiceMap,
             balanceManager: this.balanceManager,
             appConfig: this.appConfig,
-            balanceThreshold: this.appConfig.balanceThreshold,
             label: feeManagerParams.label
           });
         }

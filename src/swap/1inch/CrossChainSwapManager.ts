@@ -28,7 +28,7 @@ export class CrossChainSwapManager extends OneInchManager implements ISwapManage
     this.tokenPriceService = swapParams.tokenPriceService;
     this.transactionServiceMap = swapParams.transactionServiceMap;
     this.balanceManager = swapParams.balanceManager;
-    this.balanceThreshold = swapParams.balanceThreshold;
+    this.balanceThreshold = this.appConfig.balanceThreshold;
     this.masterFundingAccount = swapParams.masterFundingAccount;
     this.label = swapParams.label ? swapParams.label : "CrossChainAccountsManager"
   }

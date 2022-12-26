@@ -91,7 +91,6 @@ export type SwapParams = {
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
   appConfig: AppConfig;
-  balanceThreshold: Record<number, Record<string, number>>,
   masterFundingAccount: IEVMAccount;
   label: string
 };

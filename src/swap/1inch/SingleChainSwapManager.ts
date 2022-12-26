@@ -29,12 +29,13 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
     this.tokenPriceService = swapParams.tokenPriceService;
     this.transactionServiceMap = swapParams.transactionServiceMap;
     this.balanceManager = swapParams.balanceManager;
-    this.balanceThreshold = swapParams.balanceThreshold;
+    this.balanceThreshold = this.appConfig.balanceThreshold;
     this.masterFundingAccount = swapParams.masterFundingAccount;
     this.label = swapParams.label ? swapParams.label : "SingleChainAccountsManager"
   }
 
   getSwapTokenList(chainId: number): Record<string, string> {
+    console.log(this.oneInchTokenMap[chainId]);
     return this.oneInchTokenMap[chainId];
   }
 
@@ -81,7 +82,7 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
                 }
               }
 
-              let swapRequest = await this.swapToNative(chainId, tokenBalance, tokenAddress);
+              let swapRequest = await this.swapToNative(chainId, tokenBalance.toString(), tokenAddress);
               let swapReceipt = await this.transactionServiceMap[chainId].networkService.ethersProvider.waitForTransaction(swapRequest.hash);
 
               if (swapHashMap != undefined) {
@@ -108,42 +109,51 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
     return;
   }
 
-  async swapToNative(chainId: number, amount: any, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {
-    let mfaPrivateKey = this.masterFundingAccount.getPublicKey();
-    const swapParams = {
-      fromTokenAddress: tokenAddress,
-      toTokenAddress: config.NATIVE_ADDRESS_ROUTER,
-      amount,
-      fromAddress: this.masterFundingAccount.getPublicKey(),
-      slippage: 1,
-      disableEstimate: false,
-      allowPartialFill: false,
-    };
+  async swapToNative(chainId: number, amount: string, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {
+    try {
+      let mfaPrivateKey = this.masterFundingAccount.getPublicKey();
+      const swapParams = {
+        fromTokenAddress: tokenAddress,
+        toTokenAddress: config.NATIVE_ADDRESS_ROUTER,
+        amount,
+        fromAddress: this.masterFundingAccount.getPublicKey(),
+        slippage: 1,
+        disableEstimate: false,
+        allowPartialFill: false,
+      };
 
-    const url = this.apiRequestUrl('/swap', chainId, swapParams);
-    const rawTransaction: RawTransactionParam = await fetch(url).then((res: any) => res.json()).then((res: any) => res.tx);
-    rawTransaction.value = BigNumber.from(rawTransaction.value)._hex;
-    rawTransaction.gasLimit = rawTransaction.gas;
+      const url = this.apiRequestUrl('/swap', chainId, swapParams);
+      const rawTransaction: RawTransactionParam = await fetch(url).then((res: any) => res.json()).then((res: any) => res.tx);
+      if (!(rawTransaction && rawTransaction.value && rawTransaction.gas)) {
+        throw new Error(`rawTransaction or rawTransaction.value or rawTransaction.gas is missing`);
+      }
 
-    let transactionId = await generateTransactionId(JSON.stringify(rawTransaction));
-    log.info(`swapToNative() ~ ~ rawTransaction: ${rawTransaction} , transactionId : ${transactionId}`);
+      rawTransaction.value = BigNumber.from(rawTransaction.value)._hex;
+      rawTransaction.gasLimit = rawTransaction.gas;
 
-    let swapResponse = await this.transactionServiceMap[chainId].sendTransaction(
-      {
-        ...rawTransaction,
-        transactionId,
-        walletAddress: mfaPrivateKey,
-        speed: GasPriceType.FAST
-      },
-      this.masterFundingAccount,
-      TransactionType.SCW,
-      this.label
-    );
+      let transactionId = await generateTransactionId(JSON.stringify(rawTransaction));
+      log.info(`swapToNative() ~ ~ rawTransaction: ${rawTransaction} , transactionId : ${transactionId}`);
 
-    if (swapResponse.code === 200 && swapResponse.transactionExecutionResponse) {
-      return swapResponse.transactionExecutionResponse
+      let swapResponse = await this.transactionServiceMap[chainId].sendTransaction(
+        {
+          ...rawTransaction,
+          transactionId,
+          walletAddress: mfaPrivateKey,
+          speed: GasPriceType.FAST
+        },
+        this.masterFundingAccount,
+        TransactionType.SCW,
+        this.label
+      );
+
+      if (swapResponse.code === 200 && swapResponse.transactionExecutionResponse) {
+        return swapResponse.transactionExecutionResponse
+      }
+      throw new Error(`Failed to swap token ${tokenAddress} on chainId: ${chainId} for amount ${amount}`);
+    } catch (error: any) {
+      log.error(`error : ${stringify(error)}`);
+      throw error;
     }
-    throw new Error(`Failed to swap token ${tokenAddress} on chainId: ${chainId} for amount ${amount}`);
   }
 
   async approveSpender(chainId: number, amount: BigNumber, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {

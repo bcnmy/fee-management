@@ -4,12 +4,13 @@ import { BigNumber, Contract } from "ethers";
 import { IEVMAccount } from "../../relayer-node-interfaces/IEVMAccount";
 import { INetworkService } from "../../relayer-node-interfaces/INetworkService";
 import { EVMRawTransactionType, RawTransactionType, RpcMethod, Type0TransactionGasPriceType, Type2TransactionGasPriceType } from "../../types";
+import { MockJsonProvider } from "./mockJsonProvider";
 
 export class MockNetworkService implements INetworkService<IEVMAccount, EVMRawTransactionType>{
     chainId: number = 5;
     rpcUrl: string = "";
     fallbackRpcUrls: string[] = [];
-    ethersProvider: JsonRpcProvider = new JsonRpcProvider();
+    ethersProvider: JsonRpcProvider = new MockJsonProvider();
     getActiveRpcUrl(): string {
         throw new Error("Method not implemented.");
     }
@@ -50,7 +51,7 @@ export class MockNetworkService implements INetworkService<IEVMAccount, EVMRawTr
         return Promise.resolve(new Object(BigNumber.from(1)))
     }
     estimateGas(contract: Contract, methodName: string, params: object, from: string): Promise<BigNumber> {
-        throw new Error("Method not implemented.");
+        return Promise.resolve(BigNumber.from("1"));
     }
     sendTransaction(rawTransactionData: EVMRawTransactionType, account: IEVMAccount): Promise<TransactionResponse> {
         throw new Error("Method not implemented.");
