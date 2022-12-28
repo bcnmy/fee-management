@@ -1,9 +1,11 @@
 import { BigNumber, ethers } from "ethers";
 import { config } from "../../config";
 import { log } from "../../logs";
+import { ICacheService } from "../../relayer-node-interfaces/ICacheService";
 import { IEVMAccount } from "../../relayer-node-interfaces/IEVMAccount";
 import { ITransactionService } from "../../relayer-node-interfaces/ITransactionService";
 import { EVMRawTransactionType, GasPriceType, QuoteRequestParam, RawTransactionParam, SwapCostParams, TransactionType } from "../../types";
+import { getOneInchTokenListKey } from "../../utils/cache-utils";
 import { generateTransactionId } from "../../utils/common-utils";
 
 const fetch = require('node-fetch');
@@ -12,32 +14,43 @@ export class OneInchManager {
 
     oneInchTokenMap: Record<number, Record<string, string>> = {};
     masterFundingAccount: IEVMAccount;
-    transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>
+    transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
+    cacheService: ICacheService;
 
     constructor(_masterFundingAccount: IEVMAccount,
-        transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>) {
+        _transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>, _cacheService: ICacheService) {
+        this.cacheService = _cacheService;
         this.masterFundingAccount = _masterFundingAccount;
-        this.transactionServiceMap = transactionServiceMap;
+        this.transactionServiceMap = _transactionServiceMap;
     }
 
     async initialiseSwapTokenList(chainId: number): Promise<void> {
         try {
-            log.info(`getSupportedTokenList() chainId: ${chainId} `);
-            const supportedTokenurl = this.apiRequestUrl('/tokens', chainId, null);
 
-            log.info(`supportedTokenurl: ${supportedTokenurl} `);
-            const response = await fetch(supportedTokenurl)
-                .then((res: any) => res.json())
-                .then((res: any) => res);
+            const getOneInchListFromCache = await this.cacheService.get(getOneInchTokenListKey(chainId));
 
-            let tokenList: Record<string, string> = {};
-            for (let tokenAddress in response.tokens) {
-                let symbol = response.tokens[tokenAddress].symbol;
-                tokenList[symbol] = tokenAddress;
+            if (getOneInchListFromCache) {
+                this.oneInchTokenMap[chainId] = JSON.parse(getOneInchListFromCache);
+            } else {
+                log.info(`getSupportedTokenList() chainId: ${chainId} `);
+                const supportedTokenurl = this.apiRequestUrl('/tokens', chainId, null);
+
+                log.info(`supportedTokenurl: ${supportedTokenurl} `);
+                const response = await fetch(supportedTokenurl)
+                    .then((res: any) => res.json())
+                    .then((res: any) => res);
+
+                let tokenList: Record<string, string> = {};
+                for (let tokenAddress in response.tokens) {
+                    let symbol = response.tokens[tokenAddress].symbol;
+                    tokenList[symbol] = tokenAddress;
+                }
+                this.oneInchTokenMap[chainId] = tokenList
+
+                await this.cacheService.set(getOneInchTokenListKey(chainId), JSON.stringify(tokenList));
+                await this.cacheService.expire(getOneInchTokenListKey(chainId), config.oneInchTokenListExpiry);
             }
-            this.oneInchTokenMap[chainId] = tokenList
-        }
-        catch (error: any) {
+        } catch (error: any) {
             log.error(error);
             throw error;
         }

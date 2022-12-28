@@ -9,6 +9,7 @@ import { ITransactionService } from '../../relayer-node-interfaces/ITransactionS
 import { IBalanceManager } from '../../gas-management/interfaces/IBalanceManager';
 import { IEVMAccount } from '../../relayer-node-interfaces/IEVMAccount';
 import { OneInchManager } from './OneInchManager';
+import { ICacheService } from '../../relayer-node-interfaces/ICacheService';
 
 const fetch = require('node-fetch');
 
@@ -22,9 +23,11 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
   balanceThreshold: Record<number, Record<string, number>>;
   masterFundingAccount: IEVMAccount;
   label: string;
+  cacheService: ICacheService;
 
   constructor(swapParams: SwapParams) {
-    super(swapParams.masterFundingAccount, swapParams.transactionServiceMap)
+    super(swapParams.masterFundingAccount, swapParams.transactionServiceMap, swapParams.cacheService)
+    this.cacheService = swapParams.cacheService;
     this.appConfig = swapParams.appConfig;
     this.tokenPriceService = swapParams.tokenPriceService;
     this.transactionServiceMap = swapParams.transactionServiceMap;

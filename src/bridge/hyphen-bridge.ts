@@ -7,6 +7,8 @@ import { AppConfig, BridgeCostParams, BridgeParams, EVMRawTransactionType, ExitP
 import { IBridgeService } from './interfaces/IBridgeService';
 import { log } from '../logs';
 import { stringify } from '../utils/common-utils';
+import { ICacheService } from '../relayer-node-interfaces/ICacheService';
+import { getHyphenTokenListKey } from '../utils/cache-utils';
 const fetch = require('node-fetch');
 
 class HyphenBridge implements IBridgeService {
@@ -16,8 +18,10 @@ class HyphenBridge implements IBridgeService {
   liquidityPoolAddress: string;
   hyphenSupportedTokenMap: Record<number, Record<string, Record<number, string>>> = {};
   appConfig: AppConfig;
+  cacheService: ICacheService;
 
   constructor(bridgeParams: BridgeParams) {
+    this.cacheService = bridgeParams.cacheService;
     this.appConfig = bridgeParams.appConfig;
     this.transactionService = bridgeParams.transactionService;
     this.tokenPriceService = bridgeParams.tokenPriceService;
@@ -46,30 +50,40 @@ class HyphenBridge implements IBridgeService {
 
   async initializeBridgeTokenList(chainId: number): Promise<void> {
     try {
-      const supportedTokenurl = this.apiRequestUrl(config.hyphenSupportedTokenEndpoint, {
-        networkId: chainId,
-      });
 
-      const supportedTokenResponse: any = await fetch(supportedTokenurl)
-        .then((res: any) => res.json())
-        .then((res: any) => res);
+      const getHyphenTokenListFromCache = await this.cacheService.get(getHyphenTokenListKey(chainId));
 
-      let tokens: Record<string, Record<number, string>> = {};
-      for (let index = 0; index < supportedTokenResponse.supportedPairList.length; index++) {
-        let tokenPair = supportedTokenResponse.supportedPairList[index];
-        if (tokens[tokenPair.address] == undefined) {
-          tokens[tokenPair.address] = {
-            [tokenPair.toChainId]: tokenPair.toChainToken,
-          };
-        } else {
-          tokens[tokenPair.address][tokenPair.toChainId] = tokenPair.toChainToken;
+      if (getHyphenTokenListFromCache) {
+        this.hyphenSupportedTokenMap[chainId] = JSON.parse(getHyphenTokenListFromCache);
+      } else {
+        log.info(`Calling ${config.hyphenSupportedTokenEndpoint}`)
+        const supportedTokenurl = this.apiRequestUrl(config.hyphenSupportedTokenEndpoint, {
+          networkId: chainId,
+        });
+
+        const supportedTokenResponse: any = await fetch(supportedTokenurl)
+          .then((res: any) => res.json())
+          .then((res: any) => res);
+
+        let tokens: Record<string, Record<number, string>> = {};
+        for (let index = 0; index < supportedTokenResponse.supportedPairList.length; index++) {
+          let tokenPair = supportedTokenResponse.supportedPairList[index];
+          if (tokens[tokenPair.address] == undefined) {
+            tokens[tokenPair.address] = {
+              [tokenPair.toChainId]: tokenPair.toChainToken,
+            };
+          } else {
+            tokens[tokenPair.address][tokenPair.toChainId] = tokenPair.toChainToken;
+          }
         }
-      }
 
-      this.hyphenSupportedTokenMap[chainId] = tokens;
+        this.hyphenSupportedTokenMap[chainId] = tokens;
+        await this.cacheService.set(getHyphenTokenListKey(chainId), JSON.stringify(tokens));
+        await this.cacheService.expire(getHyphenTokenListKey(chainId), config.getHyphenTokenListKeyExpiry);
+      }
     } catch (error: any) {
-      log.error(`error : ${stringify(error)}`);
-      throw new Error(error);
+      log.error(error);
+      throw error;
     }
   }
 
@@ -90,7 +104,7 @@ class HyphenBridge implements IBridgeService {
       log.info(`exitCostResponnse : ${stringify(exitCostResponnse)}`);
       return exitCostResponnse.netTransferFee;
     } catch (error: any) {
-      throw new Error(error);
+      throw error;
     }
   }
 
@@ -144,7 +158,7 @@ class HyphenBridge implements IBridgeService {
       return depositCostInUsd;
     } catch (error: any) {
       log.error(error);
-      throw new Error(error);
+      throw error;
     }
   }
 
@@ -189,7 +203,8 @@ class HyphenBridge implements IBridgeService {
       return depositCostInUsd.add(exitCostInUsd);
     } catch (error: any) {
       log.error(`Error while calculating Bridge cost for params ${brigeCostParams}`);
-      throw new Error(`Error while calculating Bridge cost for params ${brigeCostParams}`);
+      log.error(error);
+      throw error;
     }
   }
 

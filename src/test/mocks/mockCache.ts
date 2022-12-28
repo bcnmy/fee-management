@@ -6,6 +6,10 @@ import { ICacheService } from "../../relayer-node-interfaces/ICacheService";
 export class MockCache implements ICacheService {
     redisClient: any;
 
+    release() {
+        this.redisClient = null;
+    }
+
     async connect(): Promise<void> {
         log.info('Initiating Redis connection');
     }

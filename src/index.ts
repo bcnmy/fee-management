@@ -9,7 +9,7 @@ import { config } from './config';
 import { ICacheService } from './relayer-node-interfaces/ICacheService';
 import { ITokenPrice } from './relayer-node-interfaces/ITokenPrice';
 import { log } from './logs';
-import { getGasFeePaidKey } from './utils/cache-utils';
+import { getAccumulatedFeeObjKey, getGasFeePaidKey } from './utils/cache-utils';
 import { getTimeInMilliseconds, stringify } from './utils/common-utils';
 import * as tokenUtils from './utils/token-utils';
 import { ethers } from 'ethers';
@@ -65,7 +65,7 @@ class FeeManager {
         this.tokenPriceService = feeManagerParams.tokenPriceService;
 
         this.cacheService = feeManagerParams.cacheService;
-        this.cacheService.connect();
+        // this.cacheService.connect();
 
         this.accumulatedFeeDao = new AccumulatedFeeDAO();
 
@@ -78,6 +78,7 @@ class FeeManager {
           });
 
           this.swapManager = new SingleChainSwapManager({
+            cacheService: this.cacheService,
             tokenPriceService: this.tokenPriceService,
             transactionServiceMap: this.transactionServiceMap,
             masterFundingAccount: this.masterFundingAccount,
@@ -94,6 +95,7 @@ class FeeManager {
           });
 
           this.swapManager = new CrossChainSwapManager({
+            cacheService: this.cacheService,
             tokenPriceService: this.tokenPriceService,
             masterFundingAccount: this.masterFundingAccount,
             transactionServiceMap: this.transactionServiceMap,
@@ -114,6 +116,7 @@ class FeeManager {
         for (let chainId in this.transactionServiceMap) {
           let bridgeService = new HyphenBridge({
             appConfig: this.appConfig,
+            cacheService: this.cacheService,
             transactionService: this.transactionServiceMap[chainId],
             liquidityPoolAddress: this.appConfig.hyphenLiquidityPoolAddress[chainId],
             tokenPriceService: this.tokenPriceService,
@@ -201,9 +204,12 @@ class FeeManager {
      * if yes, add gasPrice and update db & cache
      * Check if gasFeeSpend > threshold, then its time for convert erc20 tokens to native currency
      */
-  async onTransactionSCW(transactionReceipt: ethers.providers.TransactionReceipt, chainId: number) {
 
-    // let transactionReceipt: ethers.providers.TransactionReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(transactionHash);
+  async onTransactionSCW(transactionHash: string, chainId: number) {
+
+    // async onTransactionSCW(transactionReceipt: ethers.providers.TransactionReceipt, chainId: number) {
+
+    let transactionReceipt: ethers.providers.TransactionReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(transactionHash);
     if (!transactionReceipt) {
       throw new Error(`Transaction Receipt is undefined`);
     }
@@ -242,47 +248,71 @@ class FeeManager {
 
         try {
 
-          let totalFeePaidFromDb = await this.accumulatedFeeDao.getOne({ chainId, transactionType: Mode.SINGLE_CHAIN, status: config.FEE_CONVERSION_DB_STATUSES.PENDING });
-          log.info(`totalFeePaidFromDb: ${stringify(totalFeePaidFromDb)}`);
+          let accumulateFeeObj;
+          let accumulateFeeObjfromCache = await this.cacheService.get(getAccumulatedFeeObjKey(chainId));
+          if (accumulateFeeObjfromCache) {
+            accumulateFeeObj = JSON.parse(accumulateFeeObjfromCache);
+          } else {
+            let totalFeePaidFromDb = await this.accumulatedFeeDao.getOne({ chainId, transactionType: Mode.SINGLE_CHAIN, status: config.FEE_CONVERSION_DB_STATUSES.PENDING });
+            log.info(`totalFeePaidFromDb: ${stringify(totalFeePaidFromDb)}`);
 
-          if (totalFeePaidFromDb && totalFeePaidFromDb.accumulatedFeeData) {
+            accumulateFeeObj = totalFeePaidFromDb;
+          }
+
+          if (accumulateFeeObj && accumulateFeeObj.accumulatedFeeData) {
+
             let nativeFeeToBeUpdatedInDB = transactionFee.add(
-              totalFeePaidFromDb.accumulatedFeeData.feeAccumulatedInNative.toString()
+              accumulateFeeObj.accumulatedFeeData.feeAccumulatedInNative.toString()
             );
             log.info(`nativeFeeToBeUpdatedInDB: ${nativeFeeToBeUpdatedInDB}`);
-            let feeInUsdToBeUpdatedInDB: number = transactionFeePaidInUsd + totalFeePaidFromDb.accumulatedFeeData.feeAccumulatedInUSD;
+            let feeInUsdToBeUpdatedInDB: number = transactionFeePaidInUsd + accumulateFeeObj.accumulatedFeeData.feeAccumulatedInUSD;
             log.info(`feeInUsdToBeUpdatedInDB: ${feeInUsdToBeUpdatedInDB}`);
-
-            // TODO: Sachin: Do not await db updating call, instead put this .update call in try catch block and in case of error send notification
-            let updateAccumulatedFeeRequest = await this.accumulatedFeeDao.update(
-              {
-                feeAccumulatedInNative: nativeFeeToBeUpdatedInDB,
-                feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
-                updatedOn: getTimeInMilliseconds(),
-              },
-              totalFeePaidFromDb.accumulatedFeeData._id
-            );
-            log.info(`updateAccumulatedFee in DB successfully`);
-
-            await this.cacheService.set(getGasFeePaidKey(chainId), feeInUsdToBeUpdatedInDB.toString());
-            log.info(`Accumulated feeInUsd updated in cache`);
 
             if (feeInUsdToBeUpdatedInDB > this.appConfig.feeSpendThreshold[chainId]) {
               let swapResponse = await this.swapManager.initiateSwap(chainId);
               log.info(`swapResponse: ${stringify(swapResponse)}`);
 
-              let updateAccumulatedFeeRequest = await this.accumulatedFeeDao.update(
+              await this.accumulatedFeeDao.update(
                 {
                   feeAccumulatedInNative: nativeFeeToBeUpdatedInDB,
                   feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
                   updatedOn: getTimeInMilliseconds(),
                   status: config.FEE_CONVERSION_DB_STATUSES.COMPLETE,
                 },
-                totalFeePaidFromDb.accumulatedFeeData._id
+                accumulateFeeObj.accumulatedFeeData._id
+              );
+              log.info(`update AccumulatedFee in DB successfully`);
+
+              await this.cacheService.delete(getAccumulatedFeeObjKey(chainId));
+              log.info(`Cache entry deleted`);
+            } else {
+              // TODO: Sachin: Do not await db updating call, instead put this .update call in try catch block and in case of error send notification
+              await this.accumulatedFeeDao.update(
+                {
+                  feeAccumulatedInNative: nativeFeeToBeUpdatedInDB,
+                  feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
+                  updatedOn: getTimeInMilliseconds(),
+                },
+                accumulateFeeObj.accumulatedFeeData._id
               );
               log.info(`updateAccumulatedFee in DB successfully`);
+
+              await this.cacheService.set(getAccumulatedFeeObjKey(chainId), JSON.stringify({
+                _id: accumulateFeeObj.accumulatedFeeData._id,
+                feeAccumulatedInNative: nativeFeeToBeUpdatedInDB,
+                feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
+                updatedOn: getTimeInMilliseconds(),
+              }));
+              await this.cacheService.expire(getAccumulatedFeeObjKey(chainId), config.accumulatedFeeObjKeyExpiry);
+
+              log.info(`Accumulated feeInUsd updated in cache`);
+              log.info('feeInUsdToBeUpdatedInDB < this.appConfig.feeSpendThreshold[chainId], no conversion initiated');
             }
           } else {
+            // for a new entry, remove the old entry from cache
+            await this.cacheService.delete(getAccumulatedFeeObjKey(chainId));
+            log.info(`Cache entry deleted`);
+
             let addAccumulatedFeeToDBRequest = await this.accumulatedFeeDao.add({
               startTime: getTimeInMilliseconds(),
               feeAccumulatedInNative: transactionFee,
@@ -298,7 +328,6 @@ class FeeManager {
               log.error(`Error While adding AccumulatedFee in DB`);
               throw new Error(`Error while adding to AccumulatedFee`);
             }
-            await this.cacheService.set(getGasFeePaidKey(chainId), transactionFeePaidInUsd.toString());
           }
         } catch (error: any) {
           log.error(error);

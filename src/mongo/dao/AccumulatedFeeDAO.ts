@@ -17,7 +17,7 @@ export class AccumulatedFeeDAO {
           result.accumulatedFeeData = getUnique;
           log.info(`AccumulatedFee found in db with id ${result.accumulatedFeeData._id}`);
         } else {
-          log.info(`No Data found in DB with searchParam: ${searchParams}`);
+          log.info(`No Data found in DB with searchParam: ${JSON.stringify(searchParams)}`);
           result = formatMessage(config.RESPONSE_CODES.NOT_FOUND, 'Not Found');
         }
       } else {

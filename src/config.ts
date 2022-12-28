@@ -37,6 +37,11 @@ config.FEE_CONVERSION_DB_STATUSES = {
   COMPLETE: "COMPLETE",
 };
 
+
+config.getHyphenTokenListKeyExpiry = 7200000 // 2 hours
+config.oneInchTokenListExpiry = 7200000 // 2 hours
+config.accumulatedFeeObjKeyExpiry = 7200000 // 2 hours
+
 config.cache = {
   SCW_LOCK_TTL: 6000000
 }

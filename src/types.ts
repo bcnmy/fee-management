@@ -77,6 +77,7 @@ export type DeltaManagerParams = {
 
 export type PathParams = {
   swapManager: ISwapManager;
+  // cacheService: ICacheService;
   bridgeServiceMap: Record<number, IBridgeService>;
   masterFundingAccount: IEVMAccount;
   tokenList: Record<number, TokenData[]>;
@@ -88,6 +89,7 @@ export type PathParams = {
 
 export type SwapParams = {
   tokenPriceService: ITokenPrice;
+  cacheService: ICacheService;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
   appConfig: AppConfig;
@@ -101,6 +103,7 @@ export type NetworkParams = {
 };
 
 export type BalanceManagerParams = {
+  // cacheService: ICacheService;
   masterFundingAccount: IEVMAccount;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   tokenList: Record<number, TokenData[]>;
@@ -108,6 +111,7 @@ export type BalanceManagerParams = {
 };
 
 export type BridgeParams = {
+  cacheService: ICacheService;
   transactionService: ITransactionService<IEVMAccount, EVMRawTransactionType>;
   appConfig: AppConfig;
   liquidityPoolAddress: string;

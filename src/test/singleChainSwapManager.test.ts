@@ -8,9 +8,11 @@ import { SingleChainSwapManager } from "../swap/1inch/SingleChainSwapManager";
 import { AppConfig, EVMRawTransactionType } from "../types";
 import { MockBalanceManager } from "./mocks/mockBalanceManager";
 import { MockMFA } from "./mocks/mockMFA";
+import { MockCache } from './mocks/mockCache';
 import { MockTokenService } from "./mocks/mockTokenService";
 import { MockTransactionService } from "./mocks/mockTransactionService";
 import { MockTransactionServiceFail } from "./mocks/mockTransactionServiceFail";
+import { ICacheService } from "../relayer-node-interfaces/ICacheService";
 
 const fetch = require('node-fetch');
 
@@ -25,6 +27,7 @@ describe('SingleChainSwapManager Class', () => {
     let tokenPriceService;
     let masterFundingAccount;
     let chainId = 5;
+    let cacheService: ICacheService;
     let tokenAddress = "0x64ef393b6846114bad71e2cb2ccc3e10736b5716";
 
     let oneInchTokenListResponse = {
@@ -68,7 +71,7 @@ describe('SingleChainSwapManager Class', () => {
         };
 
         tokenPriceService = new MockTokenService();
-
+        cacheService = new MockCache();
         let transactionService = new MockTransactionService();
         transactionServiceMap[chainId] = transactionService;
 
@@ -79,6 +82,7 @@ describe('SingleChainSwapManager Class', () => {
         masterFundingAccount = new MockMFA();
 
         singleChainSwapManager = new SingleChainSwapManager({
+            cacheService,
             masterFundingAccount,
             transactionServiceMap,
             appConfig,
