@@ -12,7 +12,7 @@ import { log } from './logs';
 import { getAccumulatedFeeObjKey, getGasFeePaidKey } from './utils/cache-utils';
 import { getTimeInMilliseconds, stringify } from './utils/common-utils';
 import * as tokenUtils from './utils/token-utils';
-import { ethers } from 'ethers';
+import { BigNumber, ethers } from 'ethers';
 import { AccumulatedFeeDAO } from './mongo/dao';
 import { DeltaManager } from './gas-management/DeltaManager';
 import { IDeltaManager } from './gas-management/interfaces/IDeltaManager';
@@ -260,10 +260,8 @@ class FeeManager {
           }
 
           if (accumulateFeeObj && accumulateFeeObj.accumulatedFeeData) {
+            let nativeFeeToBeUpdatedInDB = transactionFee.add(ethers.BigNumber.from(accumulateFeeObj.accumulatedFeeData.feeAccumulatedInNative));
 
-            let nativeFeeToBeUpdatedInDB = transactionFee.add(
-              accumulateFeeObj.accumulatedFeeData.feeAccumulatedInNative.toString()
-            );
             log.info(`nativeFeeToBeUpdatedInDB: ${nativeFeeToBeUpdatedInDB}`);
             let feeInUsdToBeUpdatedInDB: number = transactionFeePaidInUsd + accumulateFeeObj.accumulatedFeeData.feeAccumulatedInUSD;
             log.info(`feeInUsdToBeUpdatedInDB: ${feeInUsdToBeUpdatedInDB}`);
@@ -274,7 +272,7 @@ class FeeManager {
 
               await this.accumulatedFeeDao.update(
                 {
-                  feeAccumulatedInNative: nativeFeeToBeUpdatedInDB,
+                  feeAccumulatedInNative: nativeFeeToBeUpdatedInDB.toString(),
                   feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
                   updatedOn: getTimeInMilliseconds(),
                   status: config.FEE_CONVERSION_DB_STATUSES.COMPLETE,
@@ -289,7 +287,7 @@ class FeeManager {
               // TODO: Sachin: Do not await db updating call, instead put this .update call in try catch block and in case of error send notification
               await this.accumulatedFeeDao.update(
                 {
-                  feeAccumulatedInNative: nativeFeeToBeUpdatedInDB,
+                  feeAccumulatedInNative: nativeFeeToBeUpdatedInDB.toString(),
                   feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
                   updatedOn: getTimeInMilliseconds(),
                 },
@@ -298,10 +296,12 @@ class FeeManager {
               log.info(`updateAccumulatedFee in DB successfully`);
 
               await this.cacheService.set(getAccumulatedFeeObjKey(chainId), JSON.stringify({
-                _id: accumulateFeeObj.accumulatedFeeData._id,
-                feeAccumulatedInNative: nativeFeeToBeUpdatedInDB,
-                feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
-                updatedOn: getTimeInMilliseconds(),
+                accumulatedFeeData: {
+                  _id: accumulateFeeObj.accumulatedFeeData._id,
+                  feeAccumulatedInNative: nativeFeeToBeUpdatedInDB.toString(),
+                  feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
+                  updatedOn: getTimeInMilliseconds(),
+                }
               }));
               await this.cacheService.expire(getAccumulatedFeeObjKey(chainId), config.accumulatedFeeObjKeyExpiry);
 
@@ -315,7 +315,7 @@ class FeeManager {
 
             let addAccumulatedFeeToDBRequest = await this.accumulatedFeeDao.add({
               startTime: getTimeInMilliseconds(),
-              feeAccumulatedInNative: transactionFee,
+              feeAccumulatedInNative: transactionFee.toString(),
               feeAccumulatedInUSD: transactionFeePaidInUsd,
               tokenSymbol: nativeTokenInfo.symbol,
               chainId,

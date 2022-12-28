@@ -17,7 +17,7 @@ export const AccumulatedFeeSchema = new Schema<IAccumulatedFee>({
     required: true
   },
   feeAccumulatedInNative: {
-    type: Number,
+    type: String,
     required: true
   },
   feeAccumulatedInUSD: {
