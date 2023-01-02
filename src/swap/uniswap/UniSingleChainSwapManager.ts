@@ -25,7 +25,6 @@ export class UniSingleChainSwapManager implements ISwapManager {
     masterFundingAccount: IEVMAccount;
     label: string;
     cacheService: ICacheService;
-    routerAddress: string = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
 
     constructor(swapParams: SwapParams) {
         this.cacheService = swapParams.cacheService;
@@ -116,6 +115,10 @@ export class UniSingleChainSwapManager implements ISwapManager {
     async swapToNative(chainId: number, amount: string, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {
         try {
 
+            let routerAddress = config.uniswapRouterAddress[chainId];
+            if (!routerAddress) {
+                throw new Error(`Uniswap is not supported for network ${chainId}`);
+            }
             let mfaPrivateKey = this.masterFundingAccount.getPublicKey()
             const networkService = this.transactionServiceMap[chainId].networkService;
             const addMinutes = (date: Date, minutes: number) => {
@@ -126,7 +129,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
             const deadline = addMinutes(new Date(), 10000000);
 
             let minimumAmountOut: ethers.BigNumber;
-            const routerContract = new ethers.Contract(this.routerAddress, this.routerAbi, this.transactionServiceMap[chainId].networkService.ethersProvider);
+            const routerContract = new ethers.Contract(routerAddress, this.routerAbi, this.transactionServiceMap[chainId].networkService.ethersProvider);
 
             const weth = await routerContract.WETH();
             const expectedAmountOut = await routerContract.getAmountsOut(amount, [tokenAddress, weth]);
@@ -140,7 +143,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
             const transaction = {
                 data,
                 gasPrice: gasPriceEstimate.gasPrice,
-                to: this.routerAddress,
+                to: routerAddress,
                 value: '0x0'
             };
 
@@ -186,53 +189,63 @@ export class UniSingleChainSwapManager implements ISwapManager {
 
 
     async approveSpender(chainId: number, amount: BigNumber, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {
-        let mfaPrivateKey = this.masterFundingAccount.getPublicKey()
+        try {
 
-        const networkService = this.transactionServiceMap[chainId].networkService;
-        const erc20Contract = new ethers.Contract(tokenAddress, config.erc20Abi, networkService.ethersProvider);
+            let routerAddress = config.uniswapRouterAddress[chainId];
+            if (!routerAddress) {
+                throw new Error(`Uniswap is not supported for network ${chainId}`);
+            }
+            let mfaPrivateKey = this.masterFundingAccount.getPublicKey()
 
-        const data = erc20Contract.interface.encodeFunctionData("approve", [this.routerAddress, config.INFINITE_APPROVAL_AMOUNT]);
-        const gasPriceEstimate = await networkService.getGasPrice();
+            const networkService = this.transactionServiceMap[chainId].networkService;
+            const erc20Contract = new ethers.Contract(tokenAddress, config.erc20Abi, networkService.ethersProvider);
 
-        const transaction = {
-            data,
-            gasPrice: gasPriceEstimate.gasPrice,
-            to: tokenAddress,
-            value: BigNumber.from(amount)._hex
-        };
+            const data = erc20Contract.interface.encodeFunctionData("approve", [routerAddress, config.INFINITE_APPROVAL_AMOUNT]);
+            const gasPriceEstimate = await networkService.getGasPrice();
 
-        const gasLimit = await this.transactionServiceMap[chainId].networkService.ethersProvider.estimateGas({
-            ...transaction,
-            from: mfaPrivateKey
-        });
+            const transaction = {
+                data,
+                gasPrice: gasPriceEstimate.gasPrice,
+                to: tokenAddress,
+                value: BigNumber.from(amount)._hex
+            };
 
-        const rawTransaction = {
-            ...transaction,
-            value: BigNumber.from(transaction.value)._hex,
-            gasLimit: gasLimit.toString(),
-            from: mfaPrivateKey,
-            chainId: chainId
+            const gasLimit = await this.transactionServiceMap[chainId].networkService.ethersProvider.estimateGas({
+                ...transaction,
+                from: mfaPrivateKey
+            });
+
+            const rawTransaction = {
+                ...transaction,
+                value: BigNumber.from(transaction.value)._hex,
+                gasLimit: gasLimit.toString(),
+                from: mfaPrivateKey,
+                chainId: chainId
+            }
+
+            let transactionId = await generateTransactionId(JSON.stringify(rawTransaction));
+            log.info(`transactionId : ${transactionId}`);
+
+            let approveResponse = await this.transactionServiceMap[chainId].sendTransaction(
+                {
+                    ...rawTransaction,
+                    transactionId,
+                    walletAddress: mfaPrivateKey,
+                    speed: GasPriceType.FAST
+                },
+                this.masterFundingAccount,
+                TransactionType.SCW,
+                this.label
+            );
+
+            if (approveResponse.code === 200 && approveResponse.transactionExecutionResponse) {
+                return approveResponse.transactionExecutionResponse
+            }
+            throw new Error(`Failed to approve token ${tokenAddress} on chainId: ${chainId} for amount ${amount}`);
+        } catch (error: any) {
+            log.error(`error : ${stringify(error)}`);
+            throw error;
         }
-
-        let transactionId = await generateTransactionId(JSON.stringify(rawTransaction));
-        log.info(`transactionId : ${transactionId}`);
-
-        let approveResponse = await this.transactionServiceMap[chainId].sendTransaction(
-            {
-                ...rawTransaction,
-                transactionId,
-                walletAddress: mfaPrivateKey,
-                speed: GasPriceType.FAST
-            },
-            this.masterFundingAccount,
-            TransactionType.SCW,
-            this.label
-        );
-
-        if (approveResponse.code === 200 && approveResponse.transactionExecutionResponse) {
-            return approveResponse.transactionExecutionResponse
-        }
-        throw new Error(`Failed to approve token ${tokenAddress} on chainId: ${chainId} for amount ${amount}`);
     }
 
     swapToken(route: RouteParams): Promise<ethers.providers.TransactionResponse> {
@@ -240,9 +253,18 @@ export class UniSingleChainSwapManager implements ISwapManager {
     }
 
     async checkDexAllowance(fromChainId: number, tokenAddress: string): Promise<BigNumber> {
-        const erc20Contract = new ethers.Contract(tokenAddress, config.erc20Abi, this.transactionServiceMap[fromChainId].networkService.ethersProvider);
-        const allowance: ethers.BigNumber = await erc20Contract.allowance(this.masterFundingAccount.getPublicKey(), this.routerAddress);
-        return allowance;
+        try {
+            let routerAddress = config.uniswapRouterAddress[fromChainId];
+            if (!routerAddress) {
+                throw new Error(`Uniswap is not supported for network ${fromChainId}`);
+            }
+            const erc20Contract = new ethers.Contract(tokenAddress, config.erc20Abi, this.transactionServiceMap[fromChainId].networkService.ethersProvider);
+            const allowance: ethers.BigNumber = await erc20Contract.allowance(this.masterFundingAccount.getPublicKey(), routerAddress);
+            return allowance;
+        } catch (error: any) {
+            log.error(`error : ${stringify(error)}`);
+            throw error;
+        }
     }
 
     getSwapCost(swapCostParams: SwapCostParams): Promise<BigNumber> {
