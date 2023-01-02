@@ -9,6 +9,8 @@ import { IBalanceManager } from '../../gas-management/interfaces/IBalanceManager
 import { IEVMAccount } from '../../relayer-node-interfaces/IEVMAccount';
 import { OneInchManager } from './OneInchManager';
 import { ICacheService } from '../../relayer-node-interfaces/ICacheService';
+import { getOneInchTokenListKey } from '../../utils/cache-utils';
+import { config } from '../../config';
 
 const fetch = require('node-fetch');
 
@@ -38,6 +40,38 @@ export class CrossChainSwapManager extends OneInchManager implements ISwapManage
 
   getSwapTokenList(chainId: number): Record<string, string> {
     return this.oneInchTokenMap[chainId];
+  }
+
+  async initialiseSwapTokenList(chainId: number): Promise<void> {
+    try {
+
+      const getOneInchListFromCache = await this.cacheService.get(getOneInchTokenListKey(chainId));
+
+      if (getOneInchListFromCache) {
+        this.oneInchTokenMap[chainId] = JSON.parse(getOneInchListFromCache);
+      } else {
+        log.info(`getSupportedTokenList() chainId: ${chainId} `);
+        const supportedTokenurl = this.apiRequestUrl('/tokens', chainId, null);
+
+        log.info(`supportedTokenurl: ${supportedTokenurl} `);
+        const response = await fetch(supportedTokenurl)
+          .then((res: any) => res.json())
+          .then((res: any) => res);
+
+        let tokenList: Record<string, string> = {};
+        for (let tokenAddress in response.tokens) {
+          let symbol = response.tokens[tokenAddress].symbol;
+          tokenList[symbol] = tokenAddress;
+        }
+        this.oneInchTokenMap[chainId] = tokenList
+
+        await this.cacheService.set(getOneInchTokenListKey(chainId), JSON.stringify(tokenList));
+        await this.cacheService.expire(getOneInchTokenListKey(chainId), config.oneInchTokenListExpiry);
+      }
+    } catch (error: any) {
+      log.error(error);
+      throw error;
+    }
   }
 
   initiateSwap(chainId: number): Promise<unknown> {

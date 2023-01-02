@@ -172,6 +172,7 @@ export type rpcUrlMap = {
 };
 
 export type AppConfig = {
+  swapInAction: string;
   tokenList: Record<number, TokenData[]>;
   nativeTokenSymbol: ChainIdWithStringValueType,
   noOfDepositConfirmation: ChainIdWithNumberValueType,

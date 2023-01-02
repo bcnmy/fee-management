@@ -3,7 +3,7 @@ import { QuoteRequestParam, RouteParams, SwapCostParams } from '../../types';
 export interface ISwapManager {
   approveSpender(fromChainId: number, swapTokenBalance: BigNumber, swapToTokenAddress: string): Promise<ethers.providers.TransactionResponse>;
   swapToken(route: RouteParams): Promise<ethers.providers.TransactionResponse>;
-  checkDexAllowane(fromChainId: number, tokenAddress: string): Promise<BigNumber>;
+  checkDexAllowance(fromChainId: number, tokenAddress: string): Promise<BigNumber>;
   initiateSwap(chainId: number): Promise<unknown>;
   getSwapCost(swapCostParams: SwapCostParams): Promise<ethers.BigNumber>;
   initialiseSwapTokenList(chainId: number): void;

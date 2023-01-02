@@ -30,6 +30,7 @@ import { Lock } from 'redlock';
 import { SingleChainBalanceManager } from './gas-management/SingleChainBalanceManager';
 import { SingleChainSwapManager } from './swap/1inch/SingleChainSwapManager';
 import { Mongo } from './mongo/Mongo';
+import { UniSingleChainSwapManager } from './swap/uniswap/UniSingleChainSwapManager';
 
 class FeeManager {
   masterFundingAccount!: IEVMAccount;
@@ -44,7 +45,7 @@ class FeeManager {
   bridgeServiceMap: Record<number, IBridgeService> = {};
   balanceManager!: IBalanceManager;
   transactionServiceMap!: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
-  oneInchTokenMap: Record<number, Record<string, string>> = {};
+  // oneInchTokenMap: Record<number, Record<string, string>> = {};
   hyphenSupportedTokenMap: Record<number, Record<string, Record<number, string>>> = {};
 
   constructor(feeManagerParams: FeeManagerParams) {
@@ -77,15 +78,27 @@ class FeeManager {
             tokenPriceService: this.tokenPriceService,
           });
 
-          this.swapManager = new SingleChainSwapManager({
-            cacheService: this.cacheService,
-            tokenPriceService: this.tokenPriceService,
-            transactionServiceMap: this.transactionServiceMap,
-            masterFundingAccount: this.masterFundingAccount,
-            balanceManager: this.balanceManager,
-            appConfig: this.appConfig,
-            label: feeManagerParams.label
-          });
+          if (this.appConfig.swapInAction === "oneinch") {
+            this.swapManager = new SingleChainSwapManager({
+              cacheService: this.cacheService,
+              tokenPriceService: this.tokenPriceService,
+              transactionServiceMap: this.transactionServiceMap,
+              masterFundingAccount: this.masterFundingAccount,
+              balanceManager: this.balanceManager,
+              appConfig: this.appConfig,
+              label: feeManagerParams.label
+            });
+          } else {
+            this.swapManager = new UniSingleChainSwapManager({
+              cacheService: this.cacheService,
+              tokenPriceService: this.tokenPriceService,
+              transactionServiceMap: this.transactionServiceMap,
+              masterFundingAccount: this.masterFundingAccount,
+              balanceManager: this.balanceManager,
+              appConfig: this.appConfig,
+              label: feeManagerParams.label
+            });
+          }
         } else if (feeManagerParams.mode === Mode.CROSS_CHAIN) {
           this.balanceManager = new CrossChainBalanceManager({
             transactionServiceMap: this.transactionServiceMap,

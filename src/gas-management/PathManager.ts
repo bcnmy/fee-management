@@ -63,7 +63,7 @@ class PathManager implements IPathManager {
             let tokenBalance = await this.balanceManager.getBalance(route.fromChainId, route.tokenAddress);
             let swapToTokenAddress = this.swapManager.getSwapTokenList(route.fromChainId)[this.appConfig.nativeTokenSymbol[route.toChainId]];
             if (tokenBalance.gt(0)) {
-              let dexAllowance = await this.swapManager.checkDexAllowane(route.fromChainId, route.tokenAddress);
+              let dexAllowance = await this.swapManager.checkDexAllowance(route.fromChainId, route.tokenAddress);
               if (tokenBalance.gt(dexAllowance.toString())) {
                 let approveTokenResponse = await this.swapManager.approveSpender(route.fromChainId, tokenBalance, route.tokenAddress);
                 let approveReceipt = await this.transactionServiceMap[route.fromChainId].networkService.ethersProvider.waitForTransaction(approveTokenResponse.hash);

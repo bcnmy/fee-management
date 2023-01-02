@@ -15,7 +15,6 @@ const fetch = require('node-fetch');
 
 export class SingleChainSwapManager extends OneInchManager implements ISwapManager {
   // TODO add try catch
-  oneInchTokenMap: Record<number, Record<string, string>> = {};
   tokenPriceService: ITokenPrice;
   transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   balanceManager: IBalanceManager;
@@ -35,11 +34,6 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
     this.balanceThreshold = this.appConfig.balanceThreshold;
     this.masterFundingAccount = swapParams.masterFundingAccount;
     this.label = swapParams.label ? swapParams.label : "SingleChainAccountsManager"
-  }
-
-  getSwapTokenList(chainId: number): Record<string, string> {
-    console.log(this.oneInchTokenMap[chainId]);
-    return this.oneInchTokenMap[chainId];
   }
 
   async initiateSwap(chainId: number): Promise<unknown> {
@@ -67,7 +61,7 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
             let balanceValueInUsd = tokenBalance.mul(tokenUsdPrice).div(ethers.BigNumber.from(10).pow(tokenDecimal));
             if (balanceValueInUsd.gt(this.balanceThreshold[chainId][tokenAddress])) {
 
-              let dexAllowance = await this.checkDexAllowane(chainId, tokenAddress);
+              let dexAllowance = await this.checkDexAllowance(chainId, tokenAddress);
               if (tokenBalance.gt(dexAllowance.toString())) {
                 let approveRequest = await this.approveSpender(chainId, config.INFINITE_APPROVAL_AMOUNT, tokenAddress);
                 let approveReceipt = await this.transactionServiceMap[chainId].networkService.ethersProvider.waitForTransaction(
@@ -164,6 +158,13 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
   }
 
   swapToken(route: RouteParams): Promise<ethers.providers.TransactionResponse> {
+    throw new Error('Method not implemented.');
+  }
+
+  initialiseSwapTokenList(chainId: number): void {
+    throw new Error('Method not implemented.');
+  }
+  getSwapTokenList(chainId: number): Record<string, string> {
     throw new Error('Method not implemented.');
   }
 }

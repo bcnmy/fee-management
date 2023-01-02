@@ -32,6 +32,7 @@
   ],
   "dependencies": {
     "@types/crypto-js": "^4.1.1",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0",
     "amqplib": "^0.10.3",
     "cross-fetch": "^3.1.5",
     "crypto-js": "^4.1.1",
