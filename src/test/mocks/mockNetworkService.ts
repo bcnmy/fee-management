@@ -7,9 +7,6 @@ import { EVMRawTransactionType, RawTransactionType, RpcMethod, Type0TransactionG
 import { MockJsonProvider } from "./mockJsonProvider";
 
 export class MockNetworkService implements INetworkService<IEVMAccount, EVMRawTransactionType>{
-    chainId: number = 5;
-    rpcUrl: string = "";
-    fallbackRpcUrls: string[] = [];
     ethersProvider: JsonRpcProvider = new MockJsonProvider();
     getActiveRpcUrl(): string {
         throw new Error("Method not implemented.");

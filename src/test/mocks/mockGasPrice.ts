@@ -8,7 +8,6 @@ import { MockNetworkService } from "./mockNetworkService";
 
 
 export class MockGasPrice implements IGasPrice {
-    chainId: number = 5;
     networkService: INetworkService<IEVMAccount, EVMRawTransactionType> = new MockNetworkService();
     cacheService: ICacheService = new MockCache();
     setGasPrice(gasType: GasPriceType, price: string): Promise<void> {

@@ -1,7 +1,6 @@
 import { BigNumber } from "ethers";
 import { SingleChainBalanceManager } from "../gas-management/SingleChainBalanceManager";
 import { IEVMAccount } from "../relayer-node-interfaces/IEVMAccount";
-import { ITokenPrice } from "../relayer-node-interfaces/ITokenPrice";
 import { ITransactionService } from "../relayer-node-interfaces/ITransactionService";
 import { EVMRawTransactionType } from "../types";
 import { MockMFA } from "./mocks/mockMFA";

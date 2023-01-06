@@ -1,4 +1,5 @@
 import { BigNumber, ethers } from "ethers";
+import { hexValue } from "ethers/lib/utils";
 import { config } from "../../config";
 import { log } from "../../logs";
 import { ICacheService } from "../../relayer-node-interfaces/ICacheService";
@@ -24,50 +25,58 @@ export class OneInchManager {
     }
 
     async checkDexAllowance(chainId: number, tokenAddress: string): Promise<BigNumber> {
-        return fetch(this.apiRequestUrl('/approve/allowance', chainId, { tokenAddress, walletAddress: this.masterFundingAccount.getPublicKey() }))
-            .then((res: any) => res.json())
-            .then((res: any) => res.allowance);
+        try {
+            return fetch(this.apiRequestUrl('/approve/allowance', chainId, { tokenAddress, walletAddress: this.masterFundingAccount.getPublicKey() }))
+                .then((res: any) => res.json())
+                .then((res: any) => res.allowance);
+        } catch {
+            throw new Error(`Error while getting the Allowance for token ${tokenAddress} on chain ${chainId}`);
+        }
     }
 
     async approveSpender(chainId: number, amount: BigNumber, tokenAddress: string, label: string): Promise<ethers.providers.TransactionResponse> {
+        try {
+            let mfaPrivateKey = this.masterFundingAccount.getPublicKey()
+            const url = this.apiRequestUrl('/approve/transaction', chainId, { tokenAddress, amount });
 
-        let mfaPrivateKey = this.masterFundingAccount.getPublicKey()
-        const url = this.apiRequestUrl('/approve/transaction', chainId, { tokenAddress, amount });
+            const transaction = await fetch(url).then((res: any) => res.json());
 
-        const transaction = await fetch(url).then((res: any) => res.json());
+            const gasLimit = await this.transactionServiceMap[chainId].networkService.ethersProvider.estimateGas({
+                ...transaction,
+                from: this.masterFundingAccount.getPublicKey()
+            });
 
-        const gasLimit = await this.transactionServiceMap[chainId].networkService.ethersProvider.estimateGas({
-            ...transaction,
-            from: this.masterFundingAccount.getPublicKey()
-        });
+            const rawTransaction: RawTransactionParam = {
+                ...transaction,
+                value: BigNumber.from(transaction.value)._hex,
+                gasLimit: hexValue(gasLimit),
+                from: mfaPrivateKey,
+                chainId: chainId,
+            }
 
-        const rawTransaction: RawTransactionParam = {
-            ...transaction,
-            value: BigNumber.from(transaction.value)._hex,
-            gasLimit: gasLimit,
-            from: mfaPrivateKey,
-            chainId: chainId,
+            let transactionId = await generateTransactionId(JSON.stringify(rawTransaction));
+            log.info(`transactionId : ${transactionId}`);
+
+            let approveResponse = await this.transactionServiceMap[chainId].sendTransaction(
+                {
+                    ...rawTransaction,
+                    transactionId,
+                    walletAddress: mfaPrivateKey,
+                    speed: GasPriceType.FAST
+                },
+                this.masterFundingAccount,
+                TransactionType.FUNDING,
+                label
+            );
+
+            if (approveResponse && approveResponse.code === 200 && approveResponse.transactionExecutionResponse) {
+                return approveResponse.transactionExecutionResponse
+            }
+            throw new Error(`Failed to approve token ${tokenAddress} on chainId: ${chainId} for amount ${amount}`);
+        } catch (error: any) {
+            log.error(error);
+            throw error;
         }
-
-        let transactionId = await generateTransactionId(JSON.stringify(rawTransaction));
-        log.info(`transactionId : ${transactionId}`);
-
-        let approveResponse = await this.transactionServiceMap[chainId].sendTransaction(
-            {
-                ...rawTransaction,
-                transactionId,
-                walletAddress: mfaPrivateKey,
-                speed: GasPriceType.FAST
-            },
-            this.masterFundingAccount,
-            TransactionType.SCW,
-            label
-        );
-
-        if (approveResponse.code === 200 && approveResponse.transactionExecutionResponse) {
-            return approveResponse.transactionExecutionResponse
-        }
-        throw new Error(`Failed to approve token ${tokenAddress} on chainId: ${chainId} for amount ${amount}`);
     }
 
     apiRequestUrl(methodName: string, chainId: number, queryParams: any): string {

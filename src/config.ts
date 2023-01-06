@@ -43,7 +43,7 @@ config.oneInchTokenListExpiry = 7200000 // 2 hours
 config.accumulatedFeeObjKeyExpiry = 7200000 // 2 hours
 
 config.cache = {
-  SCW_LOCK_TTL: 6000000
+  SCW_LOCK_TTL: 60000
 }
 
 config.uniswapRouterAddress = {

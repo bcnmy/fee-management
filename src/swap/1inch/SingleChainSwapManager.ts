@@ -10,6 +10,7 @@ import { IBalanceManager } from '../../gas-management/interfaces/IBalanceManager
 import { IEVMAccount } from '../../relayer-node-interfaces/IEVMAccount';
 import { OneInchManager } from './OneInchManager';
 import { ICacheService } from '../../relayer-node-interfaces/ICacheService';
+import { hexValue } from 'ethers/lib/utils';
 
 const fetch = require('node-fetch');
 
@@ -57,20 +58,35 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
             let tokenUsdPrice = await this.tokenPriceService.getTokenPrice(
               this.appConfig.tokenList[chainId][tokenRecordIndex].symbol
             );
-            // TODO: Sachin: Divide this by token decimals - done
-            let balanceValueInUsd = tokenBalance.mul(tokenUsdPrice).div(ethers.BigNumber.from(10).pow(tokenDecimal));
-            if (balanceValueInUsd.gt(this.balanceThreshold[chainId][tokenAddress])) {
 
-              let dexAllowance = await this.checkDexAllowance(chainId, tokenAddress);
-              if (tokenBalance.gt(dexAllowance.toString())) {
-                let approveRequest = await this.approveSpender(chainId, config.INFINITE_APPROVAL_AMOUNT, tokenAddress);
-                let approveReceipt = await this.transactionServiceMap[chainId].networkService.ethersProvider.waitForTransaction(
+            let balanceValueInUsd = tokenBalance.mul(tokenUsdPrice).div(ethers.BigNumber.from(10).pow(tokenDecimal));
+            if (!this.balanceThreshold[chainId][tokenAddress]) {
+              log.info(`balanceThreshold is not defined for ${tokenAddress} on chain ${chainId}`)
+            } else if (balanceValueInUsd.gt(this.balanceThreshold[chainId][tokenAddress])) {
+
+              let dexAllowance;
+              try {
+                dexAllowance = await this.checkDexAllowance(chainId, tokenAddress);
+              } catch (error: any) {
+                log.error(error);
+                break;
+              }
+
+              if (dexAllowance && tokenBalance.gt(dexAllowance.toString())) {
+                let approveRequest;
+                try {
+                  approveRequest = await this.approveSpender(chainId, config.INFINITE_APPROVAL_AMOUNT, tokenAddress);
+                } catch (error: any) {
+                  log.error(error);
+                  break;
+                }
+
+                let approveReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(
                   approveRequest.hash,
-                  this.appConfig.noOfDepositConfirmation[chainId],
-                  60000
+                  this.appConfig.noOfBlockConfirmation[chainId]
                 );
                 if (!approveReceipt || approveReceipt.status === 0) {
-                  log.error(`Approval Failed`);
+                  log.error(`Approval Failed for token ${tokenAddress} on chain ${chainId}`);
                   break;
                 }
 
@@ -79,11 +95,28 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
                 }
               }
 
-              let swapRequest = await this.swapToNative(chainId, tokenBalance.toString(), tokenAddress);
-              let swapReceipt = await this.transactionServiceMap[chainId].networkService.ethersProvider.waitForTransaction(swapRequest.hash);
+              let swapRequest;
+              try {
+                swapRequest = await this.swapToNative(chainId, tokenBalance.toString(), tokenAddress);
+              } catch (error: any) {
+                log.error(error);
+                break;
+              }
 
-              if (swapHashMap != undefined) {
-                swapHashMap[tokenAddress] = {
+              let swapReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(
+                swapRequest.hash,
+                this.appConfig.noOfBlockConfirmation[chainId]
+              );
+
+              if (!swapReceipt || swapReceipt.status === 0) {
+                log.error(`Failed to get SwapReceipt for token ${tokenAddress} on chain ${chainId} with hash: swapRequest.hash`);
+                break;
+              }
+              if (swapHashMap[tokenAddress] != undefined) {
+                swapHashMap[tokenAddress]["swapHash"] = swapReceipt.transactionHash;
+              } else {
+                swapHashMap[tokenAddress] =
+                {
                   "swapHash": swapReceipt.transactionHash
                 }
               }
@@ -91,19 +124,23 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
               log.info(`Current token Balance < threshold, no need to swap`);
             }
           } catch (error: any) {
-            log.error(`Error calculating token usdBalance in MFA for chainId ${chainId} & 
-            tokenAddress: ${tokenAddress}`);
+            log.error(`Error calculating token usdBalance in MFA for chainId ${chainId} & tokenAddress: ${tokenAddress}`);
             log.error(error);
           }
+        } else {
+          log.info(`No need to convert Native Token on chain ${chainId}`)
         }
       }
+      log.info(`usdBalanceOfMFA : ${stringify(usdBalanceOfMFA)}`);
+      return {
+        code: config.RESPONSE_CODES.SUCCESS,
+        message: 'Converted all tokens successfully',
+        swapHashMap: swapHashMap,
+      }
     } catch (error: any) {
-      log.error(`error: ${stringify(error)}`);
-      throw new Error(`Error while calculating usdBalance in MFA ${stringify(error)}`);
+      log.error(error);
+      throw error;
     }
-
-    log.info(`usdBalanceOfMFA : ${stringify(usdBalanceOfMFA)}`);
-    return;
   }
 
   async swapToNative(chainId: number, amount: string, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {
@@ -126,7 +163,7 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
       }
 
       rawTransaction.value = BigNumber.from(rawTransaction.value)._hex;
-      rawTransaction.gasLimit = rawTransaction.gas;
+      rawTransaction.gasLimit = hexValue(rawTransaction.gas);
 
       let transactionId = await generateTransactionId(JSON.stringify(rawTransaction));
       log.info(`swapToNative() ~ ~ rawTransaction: ${rawTransaction} , transactionId : ${transactionId}`);
@@ -139,7 +176,7 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
           speed: GasPriceType.FAST
         },
         this.masterFundingAccount,
-        TransactionType.SCW,
+        TransactionType.FUNDING,
         this.label
       );
 
@@ -148,7 +185,7 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
       }
       throw new Error(`Failed to swap token ${tokenAddress} on chainId: ${chainId} for amount ${amount}`);
     } catch (error: any) {
-      log.error(`error : ${stringify(error)}`);
+      log.error(error);
       throw error;
     }
   }

@@ -11,11 +11,12 @@ import { ITransactionService } from '../../relayer-node-interfaces/ITransactionS
 import { IBalanceManager } from '../../gas-management/interfaces/IBalanceManager';
 import { IEVMAccount } from '../../relayer-node-interfaces/IEVMAccount';
 import { ICacheService } from '../../relayer-node-interfaces/ICacheService';
+import { hexValue } from 'ethers/lib/utils';
 
 export class UniSingleChainSwapManager implements ISwapManager {
     // TODO add try catch
-    protected routerAbi: ethers.ContractInterface = IUniswapV2Router02.abi;
-    protected factoryAbi: ethers.ContractInterface = IUniswapV2Factory.abi;
+    protected routerAbi = IUniswapV2Router02.abi;
+    protected factoryAbi = IUniswapV2Factory.abi;
 
     tokenPriceService: ITokenPrice;
     transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
@@ -32,7 +33,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
         this.tokenPriceService = swapParams.tokenPriceService;
         this.transactionServiceMap = swapParams.transactionServiceMap;
         this.balanceManager = swapParams.balanceManager;
-        this.balanceThreshold = this.appConfig.balanceThreshold;
+        this.balanceThreshold = swapParams.appConfig.balanceThreshold;
         this.masterFundingAccount = swapParams.masterFundingAccount;
         this.label = swapParams.label ? swapParams.label : "SingleChainAccountsManager"
     }
@@ -62,20 +63,35 @@ export class UniSingleChainSwapManager implements ISwapManager {
                         let tokenUsdPrice = await this.tokenPriceService.getTokenPrice(
                             this.appConfig.tokenList[chainId][tokenRecordIndex].symbol
                         );
-                        // TODO: Sachin: Divide this by token decimals - done
-                        let balanceValueInUsd = tokenBalance.mul(tokenUsdPrice).div(ethers.BigNumber.from(10).pow(tokenDecimal));
-                        if (balanceValueInUsd.gt(this.balanceThreshold[chainId][tokenAddress])) {
 
-                            let dexAllowance = await this.checkDexAllowance(chainId, tokenAddress);
-                            if (tokenBalance.gt(dexAllowance.toString())) {
-                                let approveRequest = await this.approveSpender(chainId, config.INFINITE_APPROVAL_AMOUNT, tokenAddress);
-                                let approveReceipt = await this.transactionServiceMap[chainId].networkService.ethersProvider.waitForTransaction(
+                        let balanceValueInUsd = tokenBalance.mul(tokenUsdPrice).div(ethers.BigNumber.from(10).pow(tokenDecimal));
+                        if (!this.balanceThreshold[chainId][tokenAddress]) {
+                            log.info(`balanceThreshold is not defined for ${tokenAddress} on chain ${chainId}`)
+                        } else if (balanceValueInUsd.gt(this.balanceThreshold[chainId][tokenAddress])) {
+
+                            let dexAllowance;
+                            try {
+                                dexAllowance = await this.checkDexAllowance(chainId, tokenAddress);
+                            } catch (error: any) {
+                                log.error(error);
+                                break;
+                            }
+
+                            if (dexAllowance && tokenBalance.gt(dexAllowance.toString())) {
+                                let approveRequest;
+                                try {
+                                    approveRequest = await this.approveSpender(chainId, config.INFINITE_APPROVAL_AMOUNT, tokenAddress);
+                                } catch (error: any) {
+                                    log.error(error);
+                                    break;
+                                }
+
+                                let approveReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(
                                     approveRequest.hash,
-                                    this.appConfig.noOfDepositConfirmation[chainId],
-                                    60000
+                                    this.appConfig.noOfBlockConfirmation[chainId]
                                 );
                                 if (!approveReceipt || approveReceipt.status === 0) {
-                                    log.error(`Approval Failed`);
+                                    log.error(`Approval Failed for token ${tokenAddress} on chain ${chainId}`);
                                     break;
                                 }
 
@@ -84,11 +100,28 @@ export class UniSingleChainSwapManager implements ISwapManager {
                                 }
                             }
 
-                            let swapRequest = await this.swapToNative(chainId, tokenBalance.toString(), tokenAddress);
-                            let swapReceipt = await this.transactionServiceMap[chainId].networkService.ethersProvider.waitForTransaction(swapRequest.hash);
+                            let swapRequest;
+                            try {
+                                swapRequest = await this.swapToNative(chainId, tokenBalance.toString(), tokenAddress);
+                            } catch (error: any) {
+                                log.error(error);
+                                break;
+                            }
 
-                            if (swapHashMap != undefined) {
-                                swapHashMap[tokenAddress] = {
+                            let swapReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(
+                                swapRequest.hash,
+                                this.appConfig.noOfBlockConfirmation[chainId]
+                            );
+
+                            if (!swapReceipt || swapReceipt.status === 0) {
+                                log.error(`Failed to get SwapReceipt for token ${tokenAddress} on chain ${chainId} with hash: swapRequest.hash`);
+                                break;
+                            }
+                            if (swapHashMap[tokenAddress] != undefined) {
+                                swapHashMap[tokenAddress]["swapHash"] = swapReceipt.transactionHash;
+                            } else {
+                                swapHashMap[tokenAddress] =
+                                {
                                     "swapHash": swapReceipt.transactionHash
                                 }
                             }
@@ -96,21 +129,24 @@ export class UniSingleChainSwapManager implements ISwapManager {
                             log.info(`Current token Balance < threshold, no need to swap`);
                         }
                     } catch (error: any) {
-                        log.error(`Error calculating token usdBalance in MFA for chainId ${chainId} & 
-            tokenAddress: ${tokenAddress}`);
+                        log.error(`Error calculating token usdBalance in MFA for chainId ${chainId} & tokenAddress: ${tokenAddress}`);
                         log.error(error);
                     }
+                } else {
+                    log.info(`No need to convert Native Token on chain ${chainId}`)
                 }
             }
+            log.info(`usdBalanceOfMFA : ${stringify(usdBalanceOfMFA)}`);
+            return {
+                code: config.RESPONSE_CODES.SUCCESS,
+                message: 'Converted all tokens successfully',
+                swapHashMap: swapHashMap,
+            }
         } catch (error: any) {
-            log.error(`error: ${stringify(error)}`);
-            throw new Error(`Error while calculating usdBalance in MFA ${stringify(error)}`);
+            log.error(error);
+            throw error;
         }
-
-        log.info(`usdBalanceOfMFA : ${stringify(usdBalanceOfMFA)}`);
-        return;
     }
-
 
     async swapToNative(chainId: number, amount: string, tokenAddress: string): Promise<ethers.providers.TransactionResponse> {
         try {
@@ -127,17 +163,26 @@ export class UniSingleChainSwapManager implements ISwapManager {
             }
 
             const deadline = addMinutes(new Date(), 10000000);
+            const epochDeadline = deadline.getTime();
+            log.info(`epochDeadline: ${epochDeadline}`);
 
             let minimumAmountOut: ethers.BigNumber;
-            const routerContract = new ethers.Contract(routerAddress, this.routerAbi, this.transactionServiceMap[chainId].networkService.ethersProvider);
+            const routerContract = this.transactionServiceMap[chainId].networkService.getContract(JSON.stringify(this.routerAbi), routerAddress);
 
             const weth = await routerContract.WETH();
-            const expectedAmountOut = await routerContract.getAmountsOut(amount, [tokenAddress, weth]);
+            let expectedAmountOut;
+            try {
+                expectedAmountOut = await routerContract.getAmountsOut(amount, [tokenAddress, weth]);
+                log.info(`expectedAmountOut: ${expectedAmountOut}`);
+            } catch (error: any) {
+                log.error(error);
+                throw error;
+            }
 
             minimumAmountOut = expectedAmountOut[1].mul(ethers.BigNumber.from(100).sub(10)).div(ethers.BigNumber.from(100));
 
             const data = routerContract.interface.encodeFunctionData("swapExactTokensForETH",
-                [amount, minimumAmountOut, [tokenAddress, weth], mfaPrivateKey, deadline]);
+                [amount, minimumAmountOut, [tokenAddress, weth], mfaPrivateKey, epochDeadline]);
             const gasPriceEstimate = await networkService.getGasPrice();
 
             const transaction = {
@@ -148,15 +193,16 @@ export class UniSingleChainSwapManager implements ISwapManager {
             };
 
 
-            const gasLimit = await this.transactionServiceMap[chainId].networkService.ethersProvider.estimateGas({
-                ...transaction,
-                from: mfaPrivateKey
-            });
+            const gasLimit = await this.transactionServiceMap[chainId].networkService.estimateGas(
+                routerContract,
+                "swapExactTokensForETH",
+                [amount, minimumAmountOut, [tokenAddress, weth], mfaPrivateKey, epochDeadline],
+                mfaPrivateKey
+            );
 
             const rawTransaction = {
                 ...transaction,
-                value: BigNumber.from(transaction.value)._hex,
-                gasLimit: gasLimit.toString(),
+                gasLimit: hexValue(gasLimit),
                 from: mfaPrivateKey,
                 chainId: chainId
             }
@@ -172,7 +218,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
                     speed: GasPriceType.FAST
                 },
                 this.masterFundingAccount,
-                TransactionType.SCW,
+                TransactionType.FUNDING,
                 this.label
             );
 
@@ -198,7 +244,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
             let mfaPrivateKey = this.masterFundingAccount.getPublicKey()
 
             const networkService = this.transactionServiceMap[chainId].networkService;
-            const erc20Contract = new ethers.Contract(tokenAddress, config.erc20Abi, networkService.ethersProvider);
+            const erc20Contract = networkService.getContract(config.erc20Abi, tokenAddress);
 
             const data = erc20Contract.interface.encodeFunctionData("approve", [routerAddress, config.INFINITE_APPROVAL_AMOUNT]);
             const gasPriceEstimate = await networkService.getGasPrice();
@@ -207,18 +253,19 @@ export class UniSingleChainSwapManager implements ISwapManager {
                 data,
                 gasPrice: gasPriceEstimate.gasPrice,
                 to: tokenAddress,
-                value: BigNumber.from(amount)._hex
+                value: '0x0'
             };
 
-            const gasLimit = await this.transactionServiceMap[chainId].networkService.ethersProvider.estimateGas({
-                ...transaction,
-                from: mfaPrivateKey
-            });
+            const gasLimit = await this.transactionServiceMap[chainId].networkService.estimateGas(
+                erc20Contract,
+                "approve",
+                [routerAddress, config.INFINITE_APPROVAL_AMOUNT],
+                mfaPrivateKey
+            );
 
             const rawTransaction = {
                 ...transaction,
-                value: BigNumber.from(transaction.value)._hex,
-                gasLimit: gasLimit.toString(),
+                gasLimit: hexValue(gasLimit),
                 from: mfaPrivateKey,
                 chainId: chainId
             }
@@ -234,7 +281,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
                     speed: GasPriceType.FAST
                 },
                 this.masterFundingAccount,
-                TransactionType.SCW,
+                TransactionType.FUNDING,
                 this.label
             );
 
@@ -258,7 +305,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
             if (!routerAddress) {
                 throw new Error(`Uniswap is not supported for network ${fromChainId}`);
             }
-            const erc20Contract = new ethers.Contract(tokenAddress, config.erc20Abi, this.transactionServiceMap[fromChainId].networkService.ethersProvider);
+            const erc20Contract = this.transactionServiceMap[fromChainId].networkService.getContract(config.erc20Abi, tokenAddress);
             const allowance: ethers.BigNumber = await erc20Contract.allowance(this.masterFundingAccount.getPublicKey(), routerAddress);
             return allowance;
         } catch (error: any) {
@@ -272,7 +319,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
     }
 
     initialiseSwapTokenList(chainId: number): void {
-        throw new Error('Method not implemented.');
+        log.info("No need to initialise token list")
     }
 
     getQuote(quoteRequestParam: QuoteRequestParam) {

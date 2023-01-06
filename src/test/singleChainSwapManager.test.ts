@@ -61,9 +61,10 @@ describe('SingleChainSwapManager Class', () => {
     beforeAll(async () => {
         balanceManager = new MockBalanceManager();
         appConfig = {
+            swapInAction: "oneicnh",
             tokenList: {},
             nativeTokenSymbol: {},
-            noOfDepositConfirmation: {},
+            noOfBlockConfirmation: {},
             hyphenLiquidityPoolAddress: {},
             balanceThreshold: {},
             feeSpendThreshold: {},
@@ -92,48 +93,13 @@ describe('SingleChainSwapManager Class', () => {
         });
     })
 
-    it('initialiseSwapTokenList(): Succesfully set tokenList', async () => {
-        fetch.mockResolvedValueOnce(Promise.resolve({
-            json: () =>
-                Promise.resolve(oneInchTokenListResponse),
-        }))
-
-        expect(await singleChainSwapManager.initialiseSwapTokenList(chainId)).resolves;
-    });
-
-    it('initialiseSwapTokenList(): Succesfully set tokenList', async () => {
-        fetch.mockResolvedValueOnce(Promise.resolve({
-            json: () =>
-                Promise.resolve(oneInchTokenListResponse),
-        }))
-
-        expect(await singleChainSwapManager.initialiseSwapTokenList(chainId)).resolves;
-    });
-
-    it('getSwapTokenList(): Return tokenList', async () => {
-        fetch.mockResolvedValueOnce(Promise.resolve({
-            json: () =>
-                Promise.resolve(oneInchTokenListResponse),
-        }))
-
-        expect(await singleChainSwapManager.initialiseSwapTokenList(chainId)).resolves;
-        expect(await singleChainSwapManager.getSwapTokenList(chainId)).toEqual({ USDT: '0x64ef393b6846114bad71e2cb2ccc3e10736b5716' });
-
-    });
-
-    it('initialiseSwapTokenList(): throws an error', async () => {
-        fetch.mockResolvedValueOnce(Promise.reject(new Error("Error while fetching the token List from 1Inch")))
-
-        await expect(singleChainSwapManager.initialiseSwapTokenList(chainId)).rejects.toThrow();
-    });
-
     it('checkDexAllowane(): Return allowance value', async () => {
         fetch.mockResolvedValueOnce(Promise.resolve({
             json: () =>
                 Promise.resolve(BigNumber.from(10000)),
         }))
 
-        expect(await singleChainSwapManager.checkDexAllowane(chainId, tokenAddress)).resolves;
+        expect(await singleChainSwapManager.checkDexAllowance(chainId, tokenAddress)).resolves;
 
     });
 

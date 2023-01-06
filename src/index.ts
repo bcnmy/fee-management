@@ -6,13 +6,14 @@ import {
   Mode,
 } from './types';
 import { config } from './config';
+import { Mutex } from "./utils/mutex";
 import { ICacheService } from './relayer-node-interfaces/ICacheService';
 import { ITokenPrice } from './relayer-node-interfaces/ITokenPrice';
 import { log } from './logs';
 import { getAccumulatedFeeObjKey, getGasFeePaidKey } from './utils/cache-utils';
 import { getTimeInMilliseconds, stringify } from './utils/common-utils';
 import * as tokenUtils from './utils/token-utils';
-import { BigNumber, ethers } from 'ethers';
+import { ethers } from 'ethers';
 import { AccumulatedFeeDAO } from './mongo/dao';
 import { DeltaManager } from './gas-management/DeltaManager';
 import { IDeltaManager } from './gas-management/interfaces/IDeltaManager';
@@ -45,8 +46,8 @@ class FeeManager {
   bridgeServiceMap: Record<number, IBridgeService> = {};
   balanceManager!: IBalanceManager;
   transactionServiceMap!: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
-  // oneInchTokenMap: Record<number, Record<string, string>> = {};
   hyphenSupportedTokenMap: Record<number, Record<string, Record<number, string>>> = {};
+  addressMutex: Record<string, Mutex> = {};
 
   constructor(feeManagerParams: FeeManagerParams) {
     try {
@@ -61,12 +62,10 @@ class FeeManager {
         this.appConfig = feeManagerParams.appConfig;
 
         const dbInstance = Mongo.getInstance(feeManagerParams.dbUrl);
-        dbInstance.connect();
 
         this.tokenPriceService = feeManagerParams.tokenPriceService;
 
         this.cacheService = feeManagerParams.cacheService;
-        // this.cacheService.connect();
 
         this.accumulatedFeeDao = new AccumulatedFeeDAO();
 
@@ -209,6 +208,14 @@ class FeeManager {
       throw new Error(`Error while initiating token list`);
     }
   }
+
+  getMutex(address: string) {
+    if (!this.addressMutex[address]) {
+      this.addressMutex[address] = new Mutex();
+    }
+    return this.addressMutex[address];
+  }
+
   /** Get the transaction GasPrice
      * check in DB if already an entry, if yes, update currentValueFromDB + incomingGasFee, in DB
      * Check key in cache, if available, update cacheValue + incomingGasFee, in cache
@@ -218,15 +225,14 @@ class FeeManager {
      * Check if gasFeeSpend > threshold, then its time for convert erc20 tokens to native currency
      */
 
-  async onTransactionSCW(transactionHash: string, chainId: number) {
+  // async onTransactionSCW(transactionHash: string, chainId: number) {
 
-    // async onTransactionSCW(transactionReceipt: ethers.providers.TransactionReceipt, chainId: number) {
+  async onTransactionSCW(transactionReceipt: ethers.providers.TransactionReceipt, chainId: number) {
 
-    let transactionReceipt: ethers.providers.TransactionReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(transactionHash);
-    if (!transactionReceipt) {
-      throw new Error(`Transaction Receipt is undefined`);
-    }
-    let redisLock: Lock | undefined;
+    // let transactionReceipt: ethers.providers.TransactionReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(transactionHash);
+    // if (!transactionReceipt) {
+    //   throw new Error(`Transaction Receipt is undefined`);
+    // }
     let mfaPublicKey: string = this.masterFundingAccount.getPublicKey();
     try {
       if (transactionReceipt.gasUsed) {
@@ -247,17 +253,8 @@ class FeeManager {
         let transactionFeePaidInUsd = parseFloat((transactionFee.mul(tokenUsdPrice)).toString()) / Math.pow(10, nativeTokenInfo.decimal);
         log.info(`transactionFeePaidInUsd: ${transactionFeePaidInUsd}`);
 
-        // TODO: Sachin: Take the redis db lock here before quering the DB - done
-        log.info(`trying to acquire lock for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
-        if (!this.cacheService || !this.cacheService.getRedLock()) {
-          throw new Error("Error while getting Redlock instance");
-        }
-        redisLock = await this.cacheService.getRedLock()?.acquire([`locks:${chainId}_${mfaPublicKey}_scw`], config.cache.SCW_LOCK_TTL);
-        if (!redisLock) {
-          log.error(`'Redlock not initialized'`);
-          throw new Error('Redlock not initialized');
-        }
-        log.info(`Lock acquired for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
+        const mutex = this.getMutex(mfaPublicKey);
+        await mutex.lock();
 
         try {
 
@@ -283,17 +280,22 @@ class FeeManager {
               let swapResponse = await this.swapManager.initiateSwap(chainId);
               log.info(`swapResponse: ${stringify(swapResponse)}`);
 
-              await this.accumulatedFeeDao.update(
-                {
-                  feeAccumulatedInNative: nativeFeeToBeUpdatedInDB.toString(),
-                  feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
-                  updatedOn: getTimeInMilliseconds(),
-                  status: config.FEE_CONVERSION_DB_STATUSES.COMPLETE,
-                },
-                accumulateFeeObj.accumulatedFeeData._id
-              );
-              log.info(`update AccumulatedFee in DB successfully`);
+              if (swapResponse.code === config.RESPONSE_CODES.SUCCESS) {
 
+                await this.accumulatedFeeDao.update(
+                  {
+                    feeAccumulatedInNative: nativeFeeToBeUpdatedInDB.toString(),
+                    feeAccumulatedInUSD: feeInUsdToBeUpdatedInDB,
+                    updatedOn: getTimeInMilliseconds(),
+                    status: config.FEE_CONVERSION_DB_STATUSES.COMPLETE,
+                  },
+                  accumulateFeeObj.accumulatedFeeData._id
+                );
+                log.info(`update AccumulatedFee in DB successfully`);
+              }
+
+              await mutex.release();
+              log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
               await this.cacheService.delete(getAccumulatedFeeObjKey(chainId));
               log.info(`Cache entry deleted`);
             } else {
@@ -320,6 +322,9 @@ class FeeManager {
 
               log.info(`Accumulated feeInUsd updated in cache`);
               log.info('feeInUsdToBeUpdatedInDB < this.appConfig.feeSpendThreshold[chainId], no conversion initiated');
+
+              await mutex.release();
+              log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
             }
           } else {
             // for a new entry, remove the old entry from cache
@@ -338,19 +343,19 @@ class FeeManager {
             });
 
             if (addAccumulatedFeeToDBRequest.code !== config.RESPONSE_CODES.SUCCESS) {
+              await mutex.release();
+              log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
               log.error(`Error While adding AccumulatedFee in DB`);
               throw new Error(`Error while adding to AccumulatedFee`);
             }
           }
         } catch (error: any) {
           log.error(error);
+          await mutex.release();
+          log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
           throw error;
         }
-        finally {
-          // Release the lock.
-          await redisLock.release();
-          log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
-        }
+
       } else {
         log.error(`gasUsed property not found in transaction receipt for chainId ${chainId}`);
         throw new Error(`gasUsed property not found in transaction receipt for chainId ${chainId}`);

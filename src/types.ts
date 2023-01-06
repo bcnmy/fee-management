@@ -175,7 +175,7 @@ export type AppConfig = {
   swapInAction: string;
   tokenList: Record<number, TokenData[]>;
   nativeTokenSymbol: ChainIdWithStringValueType,
-  noOfDepositConfirmation: ChainIdWithNumberValueType,
+  noOfBlockConfirmation: ChainIdWithNumberValueType,
   hyphenLiquidityPoolAddress: ChainIdWithStringValueType,
   balanceThreshold: ChainIdAndTokenWithNumberValueType;
   feeSpendThreshold: ChainIdWithNumberValueType;
