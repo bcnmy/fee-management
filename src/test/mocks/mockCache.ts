@@ -18,7 +18,7 @@ export class MockCache implements ICacheService {
         throw new Error("Method not implemented.");
     }
     get(key: string): Promise<string> {
-        throw new Error("Method not implemented.");
+        return Promise.resolve("");
     }
     set(key: string, value: string, hideValueInLogs?: boolean | undefined): Promise<boolean> {
         throw new Error("Method not implemented.");
@@ -30,10 +30,10 @@ export class MockCache implements ICacheService {
         throw new Error("Method not implemented.");
     }
     expire(key: string, expiryTime: number): Promise<boolean> {
-        throw new Error("Method not implemented.");
+        return Promise.resolve(false);
     }
     delete(key: string): Promise<boolean> {
-        throw new Error("Method not implemented.");
+        return Promise.resolve(true);
     }
     getRedLock(): any {
         return {

@@ -337,17 +337,20 @@ class FeeManager {
               feeAccumulatedInUSD: transactionFeePaidInUsd,
               tokenSymbol: nativeTokenInfo.symbol,
               chainId,
-              status: config.FEE_CONVERSION_DB_STATUSES.PENDING,
+              status: config.FEE_CONVERSION_DB_STATUSES.COMPLETE,
               createdOn: getTimeInMilliseconds(),
               transactionType: Mode.SINGLE_CHAIN
             });
+            log.info(addAccumulatedFeeToDBRequest.code);
 
             if (addAccumulatedFeeToDBRequest.code !== config.RESPONSE_CODES.SUCCESS) {
-              await mutex.release();
-              log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
               log.error(`Error While adding AccumulatedFee in DB`);
               throw new Error(`Error while adding to AccumulatedFee`);
+            } else {
+              log.info(`Successfully created a new entry of AccumulatedFee in db`);
             }
+            await mutex.release();
+            log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
           }
         } catch (error: any) {
           log.error(error);

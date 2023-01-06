@@ -199,9 +199,9 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
   }
 
   initialiseSwapTokenList(chainId: number): void {
-    throw new Error('Method not implemented.');
+    log.info('Method not implemented.');
   }
   getSwapTokenList(chainId: number): Record<string, string> {
-    throw new Error('Method not implemented.');
+    return {};
   }
 }
