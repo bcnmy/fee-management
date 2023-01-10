@@ -47,7 +47,7 @@ class FeeManager {
   balanceManager!: IBalanceManager;
   transactionServiceMap!: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>>;
   hyphenSupportedTokenMap: Record<number, Record<string, Record<number, string>>> = {};
-  addressMutex: Record<string, Mutex> = {};
+  addressMutex: Record<string, Record<number, Mutex>> = {};
 
   constructor(feeManagerParams: FeeManagerParams) {
     try {
@@ -209,11 +209,11 @@ class FeeManager {
     }
   }
 
-  getMutex(address: string) {
-    if (!this.addressMutex[address]) {
-      this.addressMutex[address] = new Mutex();
+  getMutex(address: string, chainId: number) {
+    if (!this.addressMutex[address][chainId]) {
+      this.addressMutex[address][chainId] = new Mutex();
     }
-    return this.addressMutex[address];
+    return this.addressMutex[address][chainId];
   }
 
   /** Get the transaction GasPrice
@@ -253,7 +253,7 @@ class FeeManager {
         let transactionFeePaidInUsd = parseFloat((transactionFee.mul(tokenUsdPrice)).toString()) / Math.pow(10, nativeTokenInfo.decimal);
         log.info(`transactionFeePaidInUsd: ${transactionFeePaidInUsd}`);
 
-        const mutex = this.getMutex(mfaPublicKey);
+        const mutex = this.getMutex(mfaPublicKey, chainId);
         await mutex.lock();
 
         try {
