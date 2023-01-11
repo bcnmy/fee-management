@@ -337,7 +337,7 @@ class FeeManager {
               feeAccumulatedInUSD: transactionFeePaidInUsd,
               tokenSymbol: nativeTokenInfo.symbol,
               chainId,
-              status: config.FEE_CONVERSION_DB_STATUSES.COMPLETE,
+              status: config.FEE_CONVERSION_DB_STATUSES.PENDING,
               createdOn: getTimeInMilliseconds(),
               transactionType: Mode.SINGLE_CHAIN
             });
