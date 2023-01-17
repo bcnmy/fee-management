@@ -81,7 +81,7 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
                   break;
                 }
 
-                let approveReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(
+                let approveReceipt = await this.transactionServiceMap[chainId].getNetworkServiceInstance().waitForTransaction(
                   approveRequest.hash,
                   this.appConfig.noOfBlockConfirmation[chainId]
                 );
@@ -103,7 +103,7 @@ export class SingleChainSwapManager extends OneInchManager implements ISwapManag
                 break;
               }
 
-              let swapReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(
+              let swapReceipt = await this.transactionServiceMap[chainId].getNetworkServiceInstance().waitForTransaction(
                 swapRequest.hash,
                 this.appConfig.noOfBlockConfirmation[chainId]
               );

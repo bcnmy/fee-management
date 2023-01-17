@@ -66,7 +66,7 @@ class PathManager implements IPathManager {
               let dexAllowance = await this.swapManager.checkDexAllowance(route.fromChainId, route.tokenAddress);
               if (tokenBalance.gt(dexAllowance.toString())) {
                 let approveTokenResponse = await this.swapManager.approveSpender(route.fromChainId, tokenBalance, route.tokenAddress);
-                let approveReceipt = await this.transactionServiceMap[route.fromChainId].networkService.waitForTransaction(approveTokenResponse.hash, this.appConfig.noOfBlockConfirmation[chainId]);
+                let approveReceipt = await this.transactionServiceMap[route.fromChainId].getNetworkServiceInstance().waitForTransaction(approveTokenResponse.hash, this.appConfig.noOfBlockConfirmation[chainId]);
                 if (!approveReceipt || approveReceipt.status === 0) {
                   //TODO: Add logs here
                   break;
@@ -74,7 +74,7 @@ class PathManager implements IPathManager {
               }
 
               let swapTxnResponse = await this.swapManager.swapToken(route);
-              let swapReceipt = await this.transactionServiceMap[route.fromChainId].networkService.waitForTransaction(swapTxnResponse.hash, this.appConfig.noOfBlockConfirmation[chainId]);
+              let swapReceipt = await this.transactionServiceMap[route.fromChainId].getNetworkServiceInstance().waitForTransaction(swapTxnResponse.hash, this.appConfig.noOfBlockConfirmation[chainId]);
 
               if (swapReceipt && swapReceipt.status === 1) {
                 // swap successfull
@@ -82,7 +82,7 @@ class PathManager implements IPathManager {
                 let bridgeAllowance = await this.bridgeServiceMap[route.fromChainId].checkBridgeAllowane(route.fromChainId, swapToTokenAddress);
                 if (tokenBalance.gt(bridgeAllowance.toString())) {
                   let approveTokenToDexHash = await this.swapManager.approveSpender(route.fromChainId, swapTokenBalance, swapToTokenAddress);
-                  let approveReceipt = await this.transactionServiceMap[route.fromChainId].networkService.waitForTransaction(approveTokenToDexHash.hash, this.appConfig.noOfBlockConfirmation[chainId]);
+                  let approveReceipt = await this.transactionServiceMap[route.fromChainId].getNetworkServiceInstance().waitForTransaction(approveTokenToDexHash.hash, this.appConfig.noOfBlockConfirmation[chainId]);
                   if (!approveReceipt || approveReceipt.status === 0) {
                     break;
                   }

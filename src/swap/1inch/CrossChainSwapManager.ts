@@ -122,7 +122,7 @@ export class CrossChainSwapManager extends OneInchManager implements ISwapManage
       if (!quoteForSwap && !quoteForSwap.estimatedGas) {
         throw new Error(`Error While estimating swap gas`);
       }
-      let networkGasPrice = await this.transactionServiceMap[swapCostParams.fromChainId].networkService.getGasPrice();
+      let networkGasPrice = await this.transactionServiceMap[swapCostParams.fromChainId].getNetworkServiceInstance().getGasPrice();
       log.info(`getSwapCost() networkGasPrice: ${stringify(networkGasPrice)}`);
 
       let swapCostInNativeCurrency = quoteForSwap.estimatedGas.mul(networkGasPrice.gasPrice);

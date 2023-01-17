@@ -86,7 +86,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
                                     break;
                                 }
 
-                                let approveReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(
+                                let approveReceipt = await this.transactionServiceMap[chainId].getNetworkServiceInstance().waitForTransaction(
                                     approveRequest.hash,
                                     this.appConfig.noOfBlockConfirmation[chainId]
                                 );
@@ -108,7 +108,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
                                 break;
                             }
 
-                            let swapReceipt = await this.transactionServiceMap[chainId].networkService.waitForTransaction(
+                            let swapReceipt = await this.transactionServiceMap[chainId].getNetworkServiceInstance().waitForTransaction(
                                 swapRequest.hash,
                                 this.appConfig.noOfBlockConfirmation[chainId]
                             );
@@ -156,7 +156,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
                 throw new Error(`Uniswap is not supported for network ${chainId}`);
             }
             let mfaPrivateKey = this.masterFundingAccount.getPublicKey()
-            const networkService = this.transactionServiceMap[chainId].networkService;
+            const networkService = this.transactionServiceMap[chainId].getNetworkServiceInstance();
             const addMinutes = (date: Date, minutes: number) => {
                 const minuteAsMilliseconds = 60 * 1000; // 1m in ms
                 return new Date(date.getTime() + (minutes * minuteAsMilliseconds));
@@ -167,7 +167,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
             log.info(`epochDeadline: ${epochDeadline}`);
 
             let minimumAmountOut: ethers.BigNumber;
-            const routerContract = this.transactionServiceMap[chainId].networkService.getContract(JSON.stringify(this.routerAbi), routerAddress);
+            const routerContract = this.transactionServiceMap[chainId].getNetworkServiceInstance().getContract(JSON.stringify(this.routerAbi), routerAddress);
 
             const weth = await routerContract.WETH();
             let expectedAmountOut;
@@ -193,7 +193,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
             };
 
 
-            const gasLimit = await this.transactionServiceMap[chainId].networkService.estimateGas(
+            const gasLimit = await this.transactionServiceMap[chainId].getNetworkServiceInstance().estimateGas(
                 routerContract,
                 "swapExactTokensForETH",
                 [amount, minimumAmountOut, [tokenAddress, weth], mfaPrivateKey, epochDeadline],
@@ -243,7 +243,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
             }
             let mfaPrivateKey = this.masterFundingAccount.getPublicKey()
 
-            const networkService = this.transactionServiceMap[chainId].networkService;
+            const networkService = this.transactionServiceMap[chainId].getNetworkServiceInstance();
             const erc20Contract = networkService.getContract(config.erc20Abi, tokenAddress);
 
             const data = erc20Contract.interface.encodeFunctionData("approve", [routerAddress, config.INFINITE_APPROVAL_AMOUNT]);
@@ -256,7 +256,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
                 value: '0x0'
             };
 
-            const gasLimit = await this.transactionServiceMap[chainId].networkService.estimateGas(
+            const gasLimit = await this.transactionServiceMap[chainId].getNetworkServiceInstance().estimateGas(
                 erc20Contract,
                 "approve",
                 [routerAddress, config.INFINITE_APPROVAL_AMOUNT],
@@ -305,7 +305,7 @@ export class UniSingleChainSwapManager implements ISwapManager {
             if (!routerAddress) {
                 throw new Error(`Uniswap is not supported for network ${fromChainId}`);
             }
-            const erc20Contract = this.transactionServiceMap[fromChainId].networkService.getContract(config.erc20Abi, tokenAddress);
+            const erc20Contract = this.transactionServiceMap[fromChainId].getNetworkServiceInstance().getContract(config.erc20Abi, tokenAddress);
             const allowance: ethers.BigNumber = await erc20Contract.allowance(this.masterFundingAccount.getPublicKey(), routerAddress);
             return allowance;
         } catch (error: any) {

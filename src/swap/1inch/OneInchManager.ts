@@ -41,7 +41,7 @@ export class OneInchManager {
 
             const transaction = await fetch(url).then((res: any) => res.json());
 
-            const gasLimit = await this.transactionServiceMap[chainId].networkService.ethersProvider.estimateGas({
+            const gasLimit = await this.transactionServiceMap[chainId].getNetworkServiceInstance().getEthersProvider().estimateGas({
                 ...transaction,
                 from: this.masterFundingAccount.getPublicKey()
             });

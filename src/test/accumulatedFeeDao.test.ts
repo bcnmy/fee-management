@@ -9,6 +9,9 @@ describe('Transaction Service: Sending Transaction on chainId: 5', () => {
     beforeAll(async () => {
         accumulatedFeeDao = new AccumulatedFeeDAO();
     })
+    afterEach(async () => {
+        jest.resetAllMocks();
+    });
 
     it('getOne() returns Data', async () => {
 

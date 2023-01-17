@@ -14,6 +14,7 @@ import * as tokenUtils from '../utils/token-utils';
 import { MockTokenService } from './mocks/mockTokenService';
 import { MockTransactionService } from './mocks/mockTransactionService';
 import { AccumulatedFeeDAO } from '../mongo/dao/AccumulatedFeeDAO';
+import { Mutex } from '../utils/mutex';
 
 const fetch = require('node-fetch');
 
@@ -77,10 +78,11 @@ describe('Transaction Service: Sending Transaction on chainId: 5', () => {
     let transactionServiceMap: Record<number, ITransactionService<IEVMAccount, EVMRawTransactionType>> = {};
     let accumulatedFee: AccumulatedFeeDAO;
     let cacheService: ICacheService;
+    let masterFundingAccount: IEVMAccount;
 
     beforeAll(async () => {
         accumulatedFee = new AccumulatedFeeDAO();
-        let masterFundingAccount: IEVMAccount = new MockMFA();
+        masterFundingAccount = new MockMFA();
         let relayerAddresses: String[] = [];
         let appConfig: AppConfig = {
             swapInAction: "oneinch",
@@ -113,6 +115,10 @@ describe('Transaction Service: Sending Transaction on chainId: 5', () => {
         connection = await MongoClient.connect(dbUrl, {
             useNewUrlParser: true,
         });
+    });
+
+    afterEach(async () => {
+        jest.resetAllMocks();
     });
 
     afterAll(async () => {
@@ -345,6 +351,8 @@ describe('Transaction Service: Sending Transaction on chainId: 5', () => {
 
         jest.spyOn(MockCache.prototype, 'set').mockImplementation(() => Promise.resolve(true));
 
+        jest.spyOn(feeManager, 'getMutex').mockReturnValue(new Mutex());
+
         expect(await feeManager.init()).resolves;
         expect(await feeManager.onTransactionSCW(transactionReceipt, chainId)).not.toThrowError;
     });
@@ -576,7 +584,7 @@ describe('Transaction Service: Sending Transaction on chainId: 5', () => {
         ));
 
         jest.spyOn(MockCache.prototype, 'set').mockImplementation(() => Promise.resolve(true));
-
+        jest.spyOn(feeManager, 'getMutex').mockReturnValue(new Mutex());
         expect(await feeManager.init()).resolves;
         expect(await feeManager.onTransactionSCW(transactionReceipt, chainId)).not.toThrowError;
     });

@@ -21,12 +21,12 @@ export class BalanceManager {
         try {
             log.info(`tokenAddress: ${tokenAddress}`);
             if (tokenAddress === config.NATIVE_ADDRESS_RELAYER || tokenAddress === config.NATIVE_ADDRESS_ROUTER) {
-                tokenBalance = await this.transactionServiceMap[chainId].networkService.getBalance(
+                tokenBalance = await this.transactionServiceMap[chainId].getNetworkServiceInstance().getBalance(
                     mfaPublicKey
                 );
 
             } else {
-                let tokenBalanceFromChain = await this.transactionServiceMap[chainId].networkService.executeReadMethod(
+                let tokenBalanceFromChain = await this.transactionServiceMap[chainId].getNetworkServiceInstance().executeReadMethod(
                     config.erc20Abi,
                     tokenAddress,
                     'balanceOf',

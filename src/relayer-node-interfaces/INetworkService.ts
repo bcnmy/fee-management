@@ -3,12 +3,12 @@ import EventEmitter from 'events';
 import { RpcMethod, Type0TransactionGasPriceType, Type2TransactionGasPriceType } from '../types';
 
 export interface INetworkService<AccountType, RawTransactionType> {
-  ethersProvider: ethers.providers.JsonRpcProvider;
-
   getActiveRpcUrl(): string;
   setActiveRpcUrl(rpcUrl: string): void;
   getFallbackRpcUrls(): string[];
   setFallbackRpcUrls(rpcUrls: string[]): void;
+  getEthersProvider(): ethers.providers.JsonRpcProvider;
+  getChainId(): number;
   useProvider(tag: RpcMethod, params?: any): Promise<any>
   sendRpcCall(method: string, params: Array<object>): Promise<any>
   getGasPrice(): Promise<Type0TransactionGasPriceType>;

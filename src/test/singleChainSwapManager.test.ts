@@ -93,6 +93,10 @@ describe('SingleChainSwapManager Class', () => {
         });
     })
 
+    afterEach(async () => {
+        jest.resetAllMocks();
+    });
+
     it('checkDexAllowane(): Return allowance value', async () => {
         fetch.mockResolvedValueOnce(Promise.resolve({
             json: () =>

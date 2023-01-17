@@ -10,7 +10,7 @@ export class AccumulatedFeeDAO {
       let result: any;
 
       if (JSON.stringify(searchParams) !== '{}') {
-        const getUnique: JSON = await AccumulatedFee.findOne(searchParams);
+        const getUnique = await AccumulatedFee.findOne(searchParams);
 
         if (getUnique) {
           result = formatMessage(config.RESPONSE_CODES.SUCCESS, 'AccumulatedFee data fetched successfully');

@@ -47,6 +47,10 @@ describe('SingleChainBalanceManager Class', () => {
         });
     })
 
+    afterEach(async () => {
+        jest.resetAllMocks();
+    });
+
     it('getBalance(): Get Balance for NATIVE_TOKEN', async () => {
 
         expect(await singleChainBalanceManager.getBalance(chainId, nativeToken

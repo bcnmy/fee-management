@@ -34,7 +34,7 @@ class HyphenBridge implements IBridgeService {
     const lpContractInstance = new ethers.Contract(
       this.liquidityPoolAddress,
       config.hyphenBridgeAbi,
-      this.transactionService.networkService.ethersProvider,
+      this.transactionService.getNetworkServiceInstance().getEthersProvider(),
     );
 
     return lpContractInstance;
@@ -124,14 +124,14 @@ class HyphenBridge implements IBridgeService {
         );
         value = ethers.utils.parseEther(depositParams.amount.toString());
 
-        depositGasSpend = await this.transactionService.networkService.ethersProvider.estimateGas({
+        depositGasSpend = await this.transactionService.getNetworkServiceInstance().getEthersProvider().estimateGas({
           from: this.masterFundingAccount.getPublicKey(),
           to: this.appConfig.hyphenLiquidityPoolAddress[depositParams.fromChainId],
           data: rawDepositTransaction.data,
           value,
         });
       } else {
-        depositGasSpend = await this.transactionService.networkService.estimateGas(
+        depositGasSpend = await this.transactionService.getNetworkServiceInstance().estimateGas(
           hyphenContract,
           "depositErc20",
           [depositParams.toChainId, depositParams.tokenAddress, depositParams.receiver, depositParams.amount, depositParams.tag],
@@ -141,7 +141,7 @@ class HyphenBridge implements IBridgeService {
 
       log.info(`depositGasSpend: ${depositGasSpend}`);
 
-      let networkGasPrice = await this.transactionService.networkService.getGasPrice();
+      let networkGasPrice = await this.transactionService.getNetworkServiceInstance().getGasPrice();
       log.info(`networkGasPrice: ${stringify(networkGasPrice.gasPrice)}`);
 
       let depositCostInNativeCurrency = depositGasSpend.mul(networkGasPrice.gasPrice);

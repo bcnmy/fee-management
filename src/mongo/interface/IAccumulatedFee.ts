@@ -8,6 +8,6 @@ export interface IAccumulatedFee {
   transactionType: string;
   feeAccumulated: number;
   status: string;
-  creationTime: number;
-  updationTime: number;
+  createdOn: number;
+  updatedOn: number;
 }

@@ -1,5 +1,6 @@
 import { BigNumber } from "ethers";
 import { IEVMAccount } from "../../relayer-node-interfaces/IEVMAccount";
+import { INetworkService } from "../../relayer-node-interfaces/INetworkService";
 import { ITransactionService } from "../../relayer-node-interfaces/ITransactionService";
 import { ErrorTransactionResponseType, EVMRawTransactionType, ExecuteTransactionParamsType, ExecuteTransactionResponseType, RawTransactionType, RetryTransactionQueueData, SuccessTransactionResponseType, TransactionDataType, TransactionType } from "../../types";
 import { MockNetworkService } from "./mockNetworkService";
@@ -7,7 +8,9 @@ import { MockNetworkService } from "./mockNetworkService";
 // import { MockTransactionListener } from "./mockTransactionListerner";
 
 export class MockTransactionService implements ITransactionService<IEVMAccount, EVMRawTransactionType>{
-    networkService = new MockNetworkService();
+    getNetworkServiceInstance(): INetworkService<IEVMAccount, EVMRawTransactionType> {
+        return new MockNetworkService();
+    }
 
     executeTransaction(executeTransactionParams: ExecuteTransactionParamsType): Promise<ExecuteTransactionResponseType> {
         throw new Error("Method not implemented.");

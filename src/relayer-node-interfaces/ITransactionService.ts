@@ -3,8 +3,6 @@ import { IEVMAccount } from './IEVMAccount';
 import { INetworkService } from './INetworkService';
 
 export interface ITransactionService<AccountType, RawTransactionType> {
-  networkService: INetworkService<AccountType, RawTransactionType>;
-
   executeTransaction(
     executeTransactionParams: ExecuteTransactionParamsType,
   ): Promise<ExecuteTransactionResponseType>;
@@ -21,4 +19,6 @@ export interface ITransactionService<AccountType, RawTransactionType> {
     tranasctionType: TransactionType,
     relayerManagerName: string,
   ): Promise<SuccessTransactionResponseType | ErrorTransactionResponseType>;
+
+  getNetworkServiceInstance(): INetworkService<AccountType, RawTransactionType>;
 }

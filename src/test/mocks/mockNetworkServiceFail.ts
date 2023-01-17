@@ -6,7 +6,14 @@ import { INetworkService } from "../../relayer-node-interfaces/INetworkService";
 import { EVMRawTransactionType, RawTransactionType, RpcMethod, Type0TransactionGasPriceType, Type2TransactionGasPriceType } from "../../types";
 
 export class MockNetworkServiceFail implements INetworkService<IEVMAccount, EVMRawTransactionType>{
-    ethersProvider: JsonRpcProvider = new JsonRpcProvider();
+    getEthersProvider(): JsonRpcProvider {
+        return new JsonRpcProvider();
+    }
+
+    getChainId(): number {
+        throw new Error("Method not implemented.");
+    }
+
     getActiveRpcUrl(): string {
         throw new Error("Method not implemented.");
     }

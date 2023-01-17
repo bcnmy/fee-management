@@ -1,9 +1,9 @@
 {
   "name": "fee-management",
-  "version": "0.0.2",
+  "version": "0.0.7",
   "description": "Fee management module to manage and monitor Native token in Master account accross chains",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
+  "types": "src/index.d.ts",
   "scripts": {
     "build": "rm -rf dist/ && tsc",
     "prepublish": "rm -rf dist/ && tsc",
@@ -24,11 +24,8 @@
   },
   "homepage": "https://github.com/bcnmy/fee-management#readme",
   "files": [
-    "*.js",
-    "/dist/**/*.js",
-    "/dist/*.js",
-    "/dist/**/*.d.ts",
-    "/dist/abi/*.json"
+    "src",
+    "index.ts"
   ],
   "dependencies": {
     "@types/crypto-js": "^4.1.1",

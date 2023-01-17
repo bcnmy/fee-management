@@ -36,10 +36,8 @@ export class Mongo implements IDBService {
           dbName: 'relayer-node-service',
         });
       }
-      console.log('SDK Connected to db');
     } catch (error) {
-      console.log('error while connecting to mongo db');
-      console.log(error);
+      throw error;
     }
   };
 

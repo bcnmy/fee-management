@@ -241,7 +241,7 @@ class FeeManager {
           log.error(`native Token Info not Available`);
           throw new Error(`Native Token Info not Available for chain id ${chainId}`);
         }
-        let networkGasPrice = await this.transactionServiceMap[chainId].networkService.getGasPrice();
+        let networkGasPrice = await this.transactionServiceMap[chainId].getNetworkServiceInstance().getGasPrice();
         log.info(`networkGasPrice: ${stringify(networkGasPrice)}`);
 
         let transactionFee = transactionReceipt.gasUsed.mul(networkGasPrice.gasPrice);
@@ -349,12 +349,12 @@ class FeeManager {
             } else {
               log.info(`Successfully created a new entry of AccumulatedFee in db`);
             }
-            await mutex.release();
+            mutex.release();
             log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
           }
         } catch (error: any) {
           log.error(error);
-          await mutex.release();
+          mutex.release();
           log.info(`Lock released for chainId ${chainId} and masterFundingAccount ${mfaPublicKey}`);
           throw error;
         }
@@ -391,7 +391,7 @@ class FeeManager {
           log.error(`native Token Info not Available`);
           throw new Error(`Native Token Info not Available for chain id ${chainId}`);
         }
-        let networkGasPrice = await this.transactionServiceMap[chainId].networkService.getGasPrice();
+        let networkGasPrice = await this.transactionServiceMap[chainId].getNetworkServiceInstance().getGasPrice();
         log.info(`networkGasPrice: ${networkGasPrice}`);
 
         let transactionFee = transactionReceipt.gasUsed.mul(networkGasPrice.gasPrice);
